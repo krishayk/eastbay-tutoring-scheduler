@@ -13,7 +13,7 @@ const TUTOR_EMAILS = [
   'kanneboinatejas@gmail.com'
 ];
 
-export default function MyLessons() {
+export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oauthChecked }) {
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
@@ -27,11 +27,14 @@ export default function MyLessons() {
       }
       try {
         console.log('Current user:', currentUser);
-        const q = query(
-          collection(db, 'bookings'),
-          where('userId', '==', currentUser.uid),
-          orderBy('date', 'asc')
-        );
+        let q;
+        if (tutorMode && tutorName) {
+          // Show all lessons assigned to this tutor
+          q = query(collection(db, 'bookings'), where('tutor', '==', tutorName), orderBy('date', 'asc'));
+        } else {
+          // Regular user: show their own lessons
+          q = query(collection(db, 'bookings'), where('userId', '==', currentUser.uid), orderBy('date', 'asc'));
+        }
         const querySnapshot = await getDocs(q);
         const lessonsList = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -46,7 +49,7 @@ export default function MyLessons() {
       }
     };
     fetchLessons();
-  }, [currentUser]);
+  }, [currentUser, tutorMode, tutorName]);
 
   // Group lessons by week
   const groupLessonsByWeek = (lessons) => {
@@ -185,12 +188,13 @@ export default function MyLessons() {
                         <div className="mt-2 text-xs text-gray-500">You will not see this event in your own Google Calendar, but you can join the session using the Meet link below.</div>
                       </>
                     )}
-                    {!lesson.meetLink && isTutor && (
+                    {!lesson.meetLink && tutorMode && (
                       <button
-                        className="mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow text-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                        className="mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow text-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:opacity-50"
                         onClick={() => handleGenerateMeetLink(lesson)}
+                        disabled={!oauthChecked}
                       >
-                        Generate Meet Link
+                        {oauthChecked ? 'Generate Meet Link' : 'Sign in with Google to Generate Link'}
                       </button>
                     )}
                   </div>
