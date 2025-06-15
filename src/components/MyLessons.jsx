@@ -137,6 +137,27 @@ export default function MyLessons() {
                       <FaUser className="text-base sm:text-lg" />
                       <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
                     </div>
+                    {lesson.meetLink && (
+                      <>
+                        <div className="mt-3">
+                          <a
+                            href={lesson.meetLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-lg shadow transition-all text-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
+                            </svg>
+                            Join Google Meet
+                          </a>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">You will not see this event in your own Google Calendar, but you can join the session using the Meet link below.</div>
+                      </>
+                    )}
+                    {!lesson.meetLink && (
+                      <div className="mt-2 text-gray-400 text-xs">No Google Meet link available for this lesson.</div>
+                    )}
                   </div>
                 ))}
             </div>

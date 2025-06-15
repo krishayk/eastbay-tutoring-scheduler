@@ -5,7 +5,7 @@ export const packages = [
     price: 60,
     sessionsPerWeek: 3,
     target: 'Elementary/Middle',
-    description: '3 sessions per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '3 sessions per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'elem2',
@@ -13,7 +13,7 @@ export const packages = [
     price: 40,
     sessionsPerWeek: 2,
     target: 'Elementary/Middle',
-    description: '2 sessions per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '2 sessions per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'elem1',
@@ -21,7 +21,7 @@ export const packages = [
     price: 20,
     sessionsPerWeek: 1,
     target: 'Elementary/Middle',
-    description: '1 session per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '1 session per week for elementary/middle school subjects. Each session is an hour long and we charge $20/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'hs3',
@@ -29,7 +29,7 @@ export const packages = [
     price: 75,
     sessionsPerWeek: 3,
     target: 'High School',
-    description: '3 sessions per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '3 sessions per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'hs2',
@@ -37,7 +37,7 @@ export const packages = [
     price: 50,
     sessionsPerWeek: 2,
     target: 'High School',
-    description: '2 sessions per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '2 sessions per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'hs1',
@@ -45,7 +45,7 @@ export const packages = [
     price: 25,
     sessionsPerWeek: 1,
     target: 'High School',
-    description: '1 session per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '1 session per week for High School (Excluding AP/Honors) subjects. Each session is an hour long and we charge $25/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'ap3',
@@ -53,7 +53,7 @@ export const packages = [
     price: 90,
     sessionsPerWeek: 3,
     target: 'High School AP/Honors',
-    description: '3 sessions per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '3 sessions per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'ap2',
@@ -61,7 +61,7 @@ export const packages = [
     price: 60,
     sessionsPerWeek: 2,
     target: 'High School AP/Honors',
-    description: '2 sessions per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '2 sessions per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   },
   {
     id: 'ap1',
@@ -69,6 +69,6 @@ export const packages = [
     price: 30,
     sessionsPerWeek: 1,
     target: 'High School AP/Honors',
-    description: '1 session per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend.'
+    description: '1 session per week for High School (AP/Honors) subjects. Each session is an hour long and we charge $30/hr. Sessions must be booked 24 hours in advance. Sessions DO carry on to further weeks if given an explanation for why you cannot attend. As a reminder, Zelle payments are sent to 9258758136 (The name may be listed under Krishay Kuchimanchi).'
   }
 ]; 

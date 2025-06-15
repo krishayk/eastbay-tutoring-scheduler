@@ -13,7 +13,7 @@ export default function AuthForm({ onAuth }) {
   const [packageId, setPackageId] = useState('');
   const [error, setError] = useState('');
   const [showPayment, setShowPayment] = useState(false);
-  const [children, setChildren] = useState([{ name: '', grade: '' }]);
+  const [children, setChildren] = useState([{ name: '', grade: '', email: '' }]);
   const [showReset, setShowReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
@@ -47,6 +47,7 @@ export default function AuthForm({ onAuth }) {
           await addDoc(collection(db, 'children'), {
             name: child.name,
             grade: child.grade,
+            email: child.email || '',
             userId: userCred.user.uid,
             createdAt: new Date()
           });
@@ -106,7 +107,7 @@ export default function AuthForm({ onAuth }) {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 mt-10">
+    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 mt-10">
       <h2 className="text-2xl font-bold mb-4">{isSignUp ? 'Sign Up' : 'Login'}</h2>
       {showReset ? (
         <form onSubmit={handleResetPassword} className="space-y-4">
@@ -178,7 +179,7 @@ export default function AuthForm({ onAuth }) {
               <div className="bg-blue-50 rounded-lg p-4 mt-2">
                 <h3 className="font-semibold mb-2">Child Information</h3>
                 {children.map((child, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2">
+                  <div key={idx} className="flex flex-col sm:flex-row gap-2 mb-2 w-full">
                     <input
                       type="text"
                       placeholder="Child Name"
@@ -188,7 +189,7 @@ export default function AuthForm({ onAuth }) {
                         updated[idx].name = e.target.value;
                         setChildren(updated);
                       }}
-                      className="flex-1 p-2 rounded border border-blue-200"
+                      className="flex-1 min-w-0 p-2 rounded border border-blue-200"
                       required
                     />
                     <input
@@ -200,8 +201,19 @@ export default function AuthForm({ onAuth }) {
                         updated[idx].grade = e.target.value;
                         setChildren(updated);
                       }}
-                      className="w-24 p-2 rounded border border-blue-200"
+                      className="w-full sm:w-24 min-w-0 p-2 rounded border border-blue-200"
                       required
+                    />
+                    <input
+                      type="email"
+                      placeholder="Child Email (optional)"
+                      value={child.email || ''}
+                      onChange={e => {
+                        const updated = [...children];
+                        updated[idx].email = e.target.value;
+                        setChildren(updated);
+                      }}
+                      className="w-full sm:w-56 min-w-0 p-2 rounded border border-blue-200"
                     />
                     {children.length > 1 && (
                       <button
@@ -217,7 +229,7 @@ export default function AuthForm({ onAuth }) {
                 <button
                   type="button"
                   className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  onClick={() => setChildren([...children, { name: '', grade: '' }])}
+                  onClick={() => setChildren([...children, { name: '', grade: '', email: '' }])}
                 >
                   Add Another Child
                 </button>
