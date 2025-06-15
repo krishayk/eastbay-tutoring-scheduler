@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { db } from '../utils/firebase';
 import { collection, onSnapshot, updateDoc, doc, getDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { packages } from '../data/packages';
+import { format } from 'date-fns';
 
 export default function AdminPanel({ bookings, onDelete }) {
   const [users, setUsers] = useState([]);
@@ -143,43 +144,49 @@ export default function AdminPanel({ bookings, onDelete }) {
                   <th className="p-3 font-semibold">Grade</th>
                   <th className="p-3 font-semibold">Course</th>
                   <th className="p-3 font-semibold">Day</th>
+                  <th className="p-3 font-semibold">Date</th>
                   <th className="p-3 font-semibold">Time</th>
                   <th className="p-3 font-semibold">Tutor</th>
                   <th className="p-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((b, i) => (
-                  <tr key={b.id} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition`}>
-                    {editingBooking === b.id ? (
-                      <>
-                        <td className="p-3"><input value={editBookingData.child} onChange={e => setEditBookingData({ ...editBookingData, child: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3"><input value={editBookingData.grade} onChange={e => setEditBookingData({ ...editBookingData, grade: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3"><input value={editBookingData.course} onChange={e => setEditBookingData({ ...editBookingData, course: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3"><input value={editBookingData.day} onChange={e => setEditBookingData({ ...editBookingData, day: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3"><input value={editBookingData.time} onChange={e => setEditBookingData({ ...editBookingData, time: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3"><input value={editBookingData.tutor} onChange={e => setEditBookingData({ ...editBookingData, tutor: e.target.value })} className="border rounded p-1 w-full" /></td>
-                        <td className="p-3 flex flex-wrap gap-2">
-                          <button onClick={() => handleSaveBooking(b.id)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Save</button>
-                          <button onClick={() => setEditingBooking(null)} className="bg-gray-300 text-gray-800 px-3 py-1 rounded shadow hover:bg-gray-400 transition">Cancel</button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3">{b.child}</td>
-                        <td className="p-3">{b.grade}</td>
-                        <td className="p-3">{b.course}</td>
-                        <td className="p-3">{b.day}</td>
-                        <td className="p-3">{b.time}</td>
-                        <td className="p-3">{b.tutor}</td>
-                        <td className="p-3 flex flex-wrap gap-2">
-                          <button onClick={() => handleEditBooking(b)} className="bg-blue-500 text-white px-3 py-1 rounded shadow hover:bg-blue-600 transition">Edit</button>
-                          <button onClick={() => handleDoneBooking(b.id)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Done</button>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                {bookings
+                  .slice()
+                  .sort((a, b) => new Date(a.date) - new Date(b.date))
+                  .map((b, i) => (
+                    <tr key={b.id} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition`}>
+                      {editingBooking === b.id ? (
+                        <>
+                          <td className="p-3"><input value={editBookingData.child} onChange={e => setEditBookingData({ ...editBookingData, child: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3"><input value={editBookingData.grade} onChange={e => setEditBookingData({ ...editBookingData, grade: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3"><input value={editBookingData.course} onChange={e => setEditBookingData({ ...editBookingData, course: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3"><input value={editBookingData.day} onChange={e => setEditBookingData({ ...editBookingData, day: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3">{b.date ? format(new Date(b.date), 'MMMM d') : ''}</td>
+                          <td className="p-3"><input value={editBookingData.time} onChange={e => setEditBookingData({ ...editBookingData, time: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3"><input value={editBookingData.tutor} onChange={e => setEditBookingData({ ...editBookingData, tutor: e.target.value })} className="border rounded p-1 w-full" /></td>
+                          <td className="p-3 flex flex-wrap gap-2">
+                            <button onClick={() => handleSaveBooking(b.id)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Save</button>
+                            <button onClick={() => setEditingBooking(null)} className="bg-gray-300 text-gray-800 px-3 py-1 rounded shadow hover:bg-gray-400 transition">Cancel</button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3">{b.child}</td>
+                          <td className="p-3">{b.grade}</td>
+                          <td className="p-3">{b.course}</td>
+                          <td className="p-3">{b.day}</td>
+                          <td className="p-3">{b.date ? format(new Date(b.date), 'MMMM d') : ''}</td>
+                          <td className="p-3">{b.time}</td>
+                          <td className="p-3">{b.tutor}</td>
+                          <td className="p-3 flex flex-wrap gap-2">
+                            <button onClick={() => handleEditBooking(b)} className="bg-blue-500 text-white px-3 py-1 rounded shadow hover:bg-blue-600 transition">Edit</button>
+                            <button onClick={() => handleDoneBooking(b.id)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Done</button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
               </tbody>
             </table>
           )}
