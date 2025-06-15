@@ -151,10 +151,26 @@ export default function App() {
         credentials: 'include'
       })
         .then(res => res.json())
-        .then(data => setOauthChecked(data.authenticated))
+        .then(data => {
+          console.log('OAuth check response:', data);
+          setOauthChecked(data.authenticated);
+        })
         .catch(() => setOauthChecked(false));
     }
   }, [isTutor]);
+
+  // Manual refresh for debugging
+  const handleCheckGoogleAuth = () => {
+    fetch('https://calendar-backend-tejy.onrender.com/api/check-auth', {
+      credentials: 'include'
+    })
+      .then(res => res.json())
+      .then(data => {
+        alert('OAuth check: ' + JSON.stringify(data));
+        setOauthChecked(data.authenticated);
+      })
+      .catch(() => setOauthChecked(false));
+  };
 
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
@@ -258,6 +274,7 @@ export default function App() {
               <span className="text-green-600 font-bold">Signed in with Google</span>
             </div>
           )}
+          <button onClick={handleCheckGoogleAuth} className="mt-2 bg-blue-200 px-4 py-2 rounded text-blue-800">Check Google Sign-In</button>
         </aside>
         <main className="flex-1 flex flex-col">
           {activeTab === 'lessons' && (
