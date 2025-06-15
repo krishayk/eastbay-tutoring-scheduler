@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { useAuth } from '../utils/AuthContext';
 import { format, startOfWeek } from 'date-fns';
 import { FaCalendarAlt, FaClock, FaUser } from 'react-icons/fa';
 
 console.log('🔥🔥🔥 MyLessons component is mounted! 🔥🔥🔥');
+
+const TUTOR_EMAILS = [
+  'krishay.k.30@gmail.com',
+  'omjoshi823@gmail.com',
+  'kanneboinatejas@gmail.com'
+];
 
 export default function MyLessons() {
   const [lessons, setLessons] = useState([]);
@@ -71,6 +77,30 @@ export default function MyLessons() {
       setLessons(lessons.filter(l => l.id !== lessonId));
     } catch (error) {
       alert('Failed to cancel lesson.');
+    }
+  };
+
+  const isTutor = currentUser && TUTOR_EMAILS.includes(currentUser.email);
+
+  const handleGenerateMeetLink = async (lesson) => {
+    try {
+      const res = await fetch('https://calendar-backend-tejy.onrender.com/api/generate-meet-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ lesson })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update Firestore with new meetLink
+        await updateDoc(doc(db, 'bookings', lesson.id), { meetLink: data.meetLink, eventLink: data.eventLink });
+        setLessons(lessons => lessons.map(l => l.id === lesson.id ? { ...l, meetLink: data.meetLink, eventLink: data.eventLink } : l));
+        alert('Google Meet link generated and saved!');
+      } else {
+        alert('Failed to generate Meet link.');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
     }
   };
 
@@ -155,8 +185,13 @@ export default function MyLessons() {
                         <div className="mt-2 text-xs text-gray-500">You will not see this event in your own Google Calendar, but you can join the session using the Meet link below.</div>
                       </>
                     )}
-                    {!lesson.meetLink && (
-                      <div className="mt-2 text-gray-400 text-xs">No Google Meet link available for this lesson.</div>
+                    {!lesson.meetLink && isTutor && (
+                      <button
+                        className="mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow text-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                        onClick={() => handleGenerateMeetLink(lesson)}
+                      >
+                        Generate Meet Link
+                      </button>
                     )}
                   </div>
                 ))}

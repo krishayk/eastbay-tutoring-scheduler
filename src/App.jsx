@@ -152,9 +152,7 @@ export default function App() {
 
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
-    // TODO: Fix assignTutorPersistent import/export issue
     const assignedTutor = 'Krishay'; // fallback to default tutor for now
-    // Google Calendar integration
     try {
       // Gather emails: parent, tutor, child (if present)
       const parentEmail = userProfile.email;
@@ -175,25 +173,18 @@ export default function App() {
       startDate.setHours(hour, minute, 0, 0);
       const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour session
 
-      // Always use OAuth2 endpoint
-      const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event-oauth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          summary: `${data.course} with ${data.child}`,
-          description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
-          attendees
-        })
-      });
-      if (res.ok) {
-        const eventData = await res.json();
-        setCalendarEvent(eventData);
-      } else {
-        alert('Booking failed: Could not create Google Calendar event (OAuth2).');
-      }
+      // Create Firestore booking (no Meet link)
+      const newBooking = {
+        ...data,
+        tutor: assignedTutor,
+        userId: userProfile.id,
+        date: startDate.toISOString(),
+        time: data.time,
+        meetLink: '',
+        eventLink: ''
+      };
+      await addDoc(collection(db, 'bookings'), newBooking);
+      alert('Your lesson is booked! The tutor will generate a Meet link before the session.');
     } catch (err) {
       alert('Booking failed: ' + err.message);
     }
