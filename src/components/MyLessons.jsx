@@ -175,16 +175,19 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
                       <button
-                        className="text-red-600 font-semibold hover:underline text-xs sm:text-sm ml-2 px-2 py-1 rounded transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-red-400"
+                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-green-400"
                         onClick={() => handleCancel(lesson.id)}
                       >
-                        Cancel
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Done
                       </button>
                     </div>
-                    {lesson.tutor && (
-                      <span className="block text-gray-700 text-base sm:text-lg font-medium mb-2">
-                        with <span className="font-bold text-black">{lesson.tutor}</span>
-                      </span>
+                    {tutorMode ? (
+                      <span className="block text-gray-700 text-lg sm:text-xl font-bold mb-2">with <span className="text-black font-extrabold">{lesson.child}</span></span>
+                    ) : (
+                      <span className="block text-gray-700 text-base sm:text-lg font-medium mb-2">with <span className="font-bold text-black">{lesson.tutor}</span></span>
                     )}
                     <div className="flex items-center gap-2 text-gray-700 mb-1 mt-2">
                       <FaCalendarAlt className="text-base sm:text-lg" />
@@ -193,10 +196,6 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                     <div className="flex items-center gap-2 text-gray-700 mb-1">
                       <FaClock className="text-base sm:text-lg" />
                       <span className="text-sm sm:text-base">{lesson.time} - {getEndTime(lesson.time)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700 mt-2">
-                      <FaUser className="text-base sm:text-lg" />
-                      <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
                     </div>
                     {lesson.meetLink && (
                       <>
