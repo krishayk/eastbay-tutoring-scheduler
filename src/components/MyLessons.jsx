@@ -234,26 +234,55 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                         <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
                       </div>
                     )}
-                    {lesson.meetLink && tutorMode && editingMeetLinkId === lesson.id ? (
-                      <div className="mt-3 flex items-center gap-2">
-                        <input
-                          type="text"
-                          className="border rounded px-3 py-2 w-64"
-                          value={editingMeetLinkValue}
-                          onChange={e => setEditingMeetLinkValue(e.target.value)}
-                        />
-                        {meetLinkEditError && (
-                          <span className="text-red-600 text-xs ml-2">{meetLinkEditError}</span>
-                        )}
-                        <button
-                          className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1 rounded"
-                          onClick={() => handleSaveMeetLink(lesson.id)}
-                        >Save</button>
-                        <button
-                          className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-3 py-1 rounded"
-                          onClick={() => { setEditingMeetLinkId(null); setEditingMeetLinkValue(""); }}
-                        >Cancel</button>
-                      </div>
+                    {tutorMode ? (
+                      lesson.meetLink && lesson.meetLink.trim() !== "" ? (
+                        editingMeetLinkId === lesson.id ? (
+                          <div className="mt-3 flex items-center gap-2">
+                            <input
+                              type="text"
+                              className="border rounded px-3 py-2 w-64"
+                              value={editingMeetLinkValue}
+                              onChange={e => setEditingMeetLinkValue(e.target.value)}
+                            />
+                            {meetLinkEditError && (
+                              <span className="text-red-600 text-xs ml-2">{meetLinkEditError}</span>
+                            )}
+                            <button
+                              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1 rounded"
+                              onClick={() => handleSaveMeetLink(lesson.id)}
+                            >Save</button>
+                            <button
+                              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-3 py-1 rounded"
+                              onClick={() => { setEditingMeetLinkId(null); setEditingMeetLinkValue(""); }}
+                            >Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex items-center gap-2">
+                            <a
+                              href={lesson.meetLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-lg shadow transition-all text-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
+                              </svg>
+                              Join Google Meet
+                            </a>
+                            <button
+                              className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                              onClick={() => { setEditingMeetLinkId(lesson.id); setEditingMeetLinkValue(lesson.meetLink); }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l10.607-10.607z" />
+                              </svg>
+                              Edit
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
+                      )
                     ) : (
                       <div className="mt-3 flex items-center gap-2">
                         {lesson.meetLink && lesson.meetLink.trim() !== "" ? (
@@ -273,21 +302,7 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                             The tutor will update this link before the session.
                           </div>
                         )}
-                        {tutorMode && (
-                          <button
-                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            onClick={() => { setEditingMeetLinkId(lesson.id); setEditingMeetLinkValue(lesson.meetLink); }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l10.607-10.607z" />
-                            </svg>
-                            Edit
-                          </button>
-                        )}
                       </div>
-                    )}
-                    {!lesson.meetLink && tutorMode && (
-                      <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
                     )}
                   </div>
                 ))}
