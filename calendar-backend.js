@@ -3,12 +3,20 @@ const cors = require('cors');
 const { google } = require('googleapis');
 const calendar = google.calendar('v3');
 const key = require('./service-account.json'); // Place your service account JSON in the same directory
+const session = require('express-session');
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(session({
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'your-session-secret'],
+  maxAge: 24 * 60 * 60 * 1000, // 1 day
+  sameSite: 'none',
+  secure: true
+}));
 
 app.post('/api/create-event', async (req, res) => {
   try {
