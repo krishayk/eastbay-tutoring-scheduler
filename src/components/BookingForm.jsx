@@ -196,7 +196,7 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
   };
 
   return (
-    <div className="flex justify-center items-start gap-8 w-full max-w-4xl mx-auto mt-10">
+    <div className="flex flex-col sm:flex-row justify-center items-start gap-4 sm:gap-8 w-full max-w-4xl mx-auto mt-4 sm:mt-10">
       {/* Calendar Column */}
       <div className="bg-white rounded-2xl shadow-lg p-6 min-w-[320px] flex flex-col items-center">
         <h2 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">

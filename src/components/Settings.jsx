@@ -113,7 +113,7 @@ export default function Settings({ userProfile: propUserProfile }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="w-full max-w-4xl mx-auto p-2 sm:p-6">
       <h2 className="text-2xl font-bold mb-6">Account Settings</h2>
       {/* Parent Info Edit */}
       <div className="mb-8 bg-white p-6 rounded-lg shadow flex flex-col gap-4 max-w-xl">

@@ -11,6 +11,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { packages } from './data/packages';
 import { format, isSameDay, addDays, differenceInCalendarDays } from 'date-fns';
 import MyLessons from './components/MyLessons';
+import { FaBars } from 'react-icons/fa';
 
 const TUTOR_EMAILS = [
   'krishay.k.30@gmail.com',
@@ -34,7 +35,7 @@ function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
     const daysUntilSunday = (7 - dayOfWeek) % 7 || 7;
     const nextSunday = addDays(today, daysUntilSunday);
     return {
-      dateStr: format(nextSunday, 'EEEE, MMMM d, yyyy'),
+      date: nextSunday,
       days: daysUntilSunday
     };
   }
@@ -73,6 +74,12 @@ function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
                 </svg>
                 <span>Status: <span className={userProfile.verified ? 'text-green-600 font-bold' : 'text-yellow-600 font-bold'}>{userProfile.verified ? 'Verified' : 'Pending Verification'}</span></span>
               </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Next Payment Due: <span className="font-bold">{format(getNextSundayInfo().date, 'MMMM d')}</span> (<span className="font-bold">{getNextSundayInfo().days}</span> days)</span>
+              </div>
             </div>
           </div>
           <div className="flex gap-4">
@@ -106,6 +113,7 @@ export default function App() {
   const meetModalRef = useRef();
   const [isTutor, setIsTutor] = useState(false);
   const [oauthChecked, setOauthChecked] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Auth state
   useEffect(() => {
@@ -256,8 +264,12 @@ export default function App() {
   if (isTutor) {
     const tutorFirstName = TUTOR_EMAIL_TO_NAME[userProfile?.email];
     return (
-      <div className="min-h-screen flex bg-[#f4f8ff]">
-        <aside className="w-80 bg-white shadow-lg flex flex-col items-center py-8">
+      <div className="min-h-screen flex flex-col sm:flex-row bg-[#f4f8ff]">
+        <button className="sm:hidden fixed top-4 left-4 z-30 bg-white rounded-full p-2 shadow" onClick={() => setSidebarOpen(true)}><FaBars size={24} /></button>
+        {sidebarOpen && (
+          <div className="sm:hidden fixed inset-0 z-20 bg-black bg-opacity-40" onClick={() => setSidebarOpen(false)} />
+        )}
+        <aside className={`sm:hidden fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-30 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col items-center mb-10 px-4 text-center">
             <img src="/logo.png" alt="East Bay Tutoring Logo" className="w-16 h-16 mb-2 rounded-full shadow-lg bg-white object-contain" />
             <span className="font-extrabold text-2xl text-blue-700 leading-tight tracking-tight drop-shadow-sm" style={{letterSpacing: '0.01em'}}>East Bay Tutoring<br />Scheduling</span>
@@ -267,22 +279,22 @@ export default function App() {
             <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
           </nav>
           <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
-          {!oauthChecked ? (
-            <a
-              href="https://calendar-backend-tejy.onrender.com/auth/google"
-              className="mt-12 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-lg shadow text-lg flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.23l6.9-6.9C35.64 2.36 30.18 0 24 0 14.82 0 6.73 5.48 2.69 13.44l8.06 6.26C12.6 13.13 17.88 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.5c0-1.64-.15-3.22-.43-4.74H24v9.04h12.4c-.54 2.9-2.18 5.36-4.64 7.04l7.18 5.6C43.27 37.27 46.1 31.4 46.1 24.5z"/><path fill="#FBBC05" d="M10.75 28.7c-1.1-3.3-1.1-6.8 0-10.1l-8.06-6.26C.9 16.36 0 20.06 0 24c0 3.94.9 7.64 2.69 11.66l8.06-6.26z"/><path fill="#EA4335" d="M24 48c6.18 0 11.64-2.04 15.64-5.54l-7.18-5.6c-2.01 1.35-4.6 2.14-8.46 2.14-6.12 0-11.4-3.63-13.25-8.7l-8.06 6.26C6.73 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
-              Sign in with Google
-            </a>
-          ) : (
-            <div className="mt-12 text-center">
-              <span className="text-green-600 font-bold">Signed in with Google</span>
-            </div>
-          )}
-          <button onClick={handleCheckGoogleAuth} className="mt-2 bg-blue-200 px-4 py-2 rounded text-blue-800">Check Google Sign-In</button>
         </aside>
-        <main className="flex-1 flex flex-col">
+        <aside className="hidden sm:flex w-80 bg-white shadow-lg flex-col items-center py-8 px-8">
+          <div className="flex flex-col items-center mb-10 px-4 text-center">
+            <img src="/logo.png" alt="East Bay Tutoring Logo" className="w-16 h-16 mb-2 rounded-full shadow-lg bg-white object-contain" />
+            <span className="font-extrabold text-2xl text-blue-700 leading-tight tracking-tight drop-shadow-sm" style={{letterSpacing: '0.01em'}}>East Bay Tutoring<br />Scheduling</span>
+          </div>
+          <nav className="flex flex-col gap-4 w-full px-8">
+            <button onClick={() => { setActiveTab('package'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'package' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Package</button>
+            <button onClick={() => { setActiveTab('schedule'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'schedule' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Schedule A Lesson</button>
+            <button onClick={() => { setActiveTab('lessons'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'lessons' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Lessons</button>
+            <button onClick={() => { setActiveTab('settings'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'settings' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Settings</button>
+            <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
+          </nav>
+          <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
+        </aside>
+        <main className="flex-1 flex flex-col px-2 sm:px-0">
           {activeTab === 'lessons' && (
             <MyLessons tutorMode={true} tutorName={tutorFirstName} tutorEmail={userProfile?.email} oauthChecked={oauthChecked} />
           )}
@@ -296,9 +308,12 @@ export default function App() {
 
   // Regular UI for non-tutors
   return (
-    <div className="min-h-screen flex bg-[#f4f8ff]">
-      {/* Sidebar */}
-      <aside className="w-80 bg-white shadow-lg flex flex-col items-center py-8">
+    <div className="min-h-screen flex flex-col sm:flex-row bg-[#f4f8ff]">
+      <button className="sm:hidden fixed top-4 left-4 z-30 bg-white rounded-full p-2 shadow" onClick={() => setSidebarOpen(true)}><FaBars size={24} /></button>
+      {sidebarOpen && (
+        <div className="sm:hidden fixed inset-0 z-20 bg-black bg-opacity-40" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside className={`sm:hidden fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-30 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col items-center mb-10 px-4 text-center">
           <img src="/logo.png" alt="East Bay Tutoring Logo" className="w-16 h-16 mb-2 rounded-full shadow-lg bg-white object-contain" />
           <span className="font-extrabold text-2xl text-blue-700 leading-tight tracking-tight drop-shadow-sm" style={{letterSpacing: '0.01em'}}>East Bay Tutoring<br />Scheduling</span>
@@ -312,8 +327,21 @@ export default function App() {
         </nav>
         <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
       </aside>
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col">
+      <aside className="hidden sm:flex w-80 bg-white shadow-lg flex-col items-center py-8 px-8">
+        <div className="flex flex-col items-center mb-10 px-4 text-center">
+          <img src="/logo.png" alt="East Bay Tutoring Logo" className="w-16 h-16 mb-2 rounded-full shadow-lg bg-white object-contain" />
+          <span className="font-extrabold text-2xl text-blue-700 leading-tight tracking-tight drop-shadow-sm" style={{letterSpacing: '0.01em'}}>East Bay Tutoring<br />Scheduling</span>
+        </div>
+        <nav className="flex flex-col gap-4 w-full px-8">
+          <button onClick={() => { setActiveTab('package'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'package' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Package</button>
+          <button onClick={() => { setActiveTab('schedule'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'schedule' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Schedule A Lesson</button>
+          <button onClick={() => { setActiveTab('lessons'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'lessons' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Lessons</button>
+          <button onClick={() => { setActiveTab('settings'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'settings' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Settings</button>
+          <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
+        </nav>
+        <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
+      </aside>
+      <main className="flex-1 flex flex-col px-2 sm:px-0">
         <header className="flex justify-end items-center p-6 bg-transparent">
           {/* Removed search and profile picture */}
         </header>

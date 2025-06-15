@@ -116,6 +116,23 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
     }
   };
 
+  // Helper to calculate end time string
+  function getEndTime(startTime) {
+    // startTime is like '2:30 PM'
+    const [time, meridian] = startTime.split(' ');
+    let [hour, minute] = time.split(':').map(Number);
+    if (meridian === 'PM' && hour !== 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+    const startDate = new Date(2000, 0, 1, hour, minute);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    let endHour = endDate.getHours();
+    let endMinute = endDate.getMinutes();
+    let endMeridian = endHour >= 12 ? 'PM' : 'AM';
+    endHour = ((endHour + 11) % 12) + 1;
+    endMinute = endMinute.toString().padStart(2, '0');
+    return `${endHour}:${endMinute} ${endMeridian}`;
+  }
+
   if (!currentUser) {
     return (
       <div className="text-center py-12">
@@ -137,7 +154,7 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
   }
 
   return (
-    <div className="max-w-4xl mx-auto mt-6 px-2 sm:px-4">
+    <div className="w-full max-w-4xl mx-auto mt-2 sm:mt-6 px-1 sm:px-4">
       <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-gray-900 text-center">My Lessons</h2>
       <div>
         {groupedLessons.map((weekGroup, idx) => (
@@ -145,7 +162,7 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
             <h3 className="text-xl sm:text-2xl font-bold text-blue-900 mb-6 sm:mb-8 text-center tracking-tight pb-2 sm:pb-4 border-b border-blue-200">
               Week of {format(weekGroup.weekStart, 'MMMM d')}
             </h3>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
+            <div className="flex flex-col items-center gap-8">
               {weekGroup.lessons
                 .slice()
                 .sort((a, b) => {
@@ -154,7 +171,7 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                   return dateA - dateB;
                 })
                 .map(lesson => (
-                  <div key={lesson.id} className="bg-white rounded-2xl shadow p-4 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px]">
+                  <div key={lesson.id} className="bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto">
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
                       <button
@@ -165,7 +182,9 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                       </button>
                     </div>
                     {lesson.tutor && (
-                      <span className="block text-gray-700 text-sm sm:text-base font-medium mb-2">with {lesson.tutor}</span>
+                      <span className="block text-gray-700 text-base sm:text-lg font-medium mb-2">
+                        with <span className="font-bold text-black">{lesson.tutor}</span>
+                      </span>
                     )}
                     <div className="flex items-center gap-2 text-gray-700 mb-1 mt-2">
                       <FaCalendarAlt className="text-base sm:text-lg" />
@@ -173,7 +192,7 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                     </div>
                     <div className="flex items-center gap-2 text-gray-700 mb-1">
                       <FaClock className="text-base sm:text-lg" />
-                      <span className="text-sm sm:text-base">{lesson.time}</span>
+                      <span className="text-sm sm:text-base">{lesson.time} - {getEndTime(lesson.time)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700 mt-2">
                       <FaUser className="text-base sm:text-lg" />
@@ -194,17 +213,15 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                             Join Google Meet
                           </a>
                         </div>
-                        <div className="mt-2 text-xs text-gray-500">You will not see this event in your own Google Calendar, but you can join the session using the Meet link below.</div>
                       </>
                     )}
                     {!lesson.meetLink && tutorMode && (
-                      <button
-                        className="mt-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-lg shadow text-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:opacity-50"
-                        onClick={() => handleGenerateMeetLink(lesson)}
-                        disabled={!oauthChecked}
-                      >
-                        {oauthChecked ? 'Generate Meet Link' : 'Sign in with Google to Generate Link'}
-                      </button>
+                      <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
+                    )}
+                    {!lesson.meetLink && !tutorMode && (
+                      <div className="mt-3 text-gray-600 text-center font-medium">
+                        The tutor will update this link before the session.
+                      </div>
                     )}
                   </div>
                 ))}
@@ -212,6 +229,48 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function TutorMeetLinkInput({ lesson, setLessons }) {
+  const [meetLink, setMeetLink] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [success, setSuccess] = React.useState(false);
+
+  const handleSave = async () => {
+    if (!meetLink) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'bookings', lesson.id), { meetLink });
+      setLessons(lessons => lessons.map(l => l.id === lesson.id ? { ...l, meetLink } : l));
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      alert('Failed to save Meet link.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <input
+        type="text"
+        className="border rounded px-3 py-2"
+        placeholder="Paste Google Meet link here"
+        value={meetLink}
+        onChange={e => setMeetLink(e.target.value)}
+        disabled={saving}
+      />
+      <button
+        className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded shadow disabled:opacity-50"
+        onClick={handleSave}
+        disabled={saving || !meetLink}
+      >
+        {saving ? 'Saving...' : 'Save Link'}
+      </button>
+      {success && <span className="text-green-600 text-sm">Link saved!</span>}
     </div>
   );
 } 

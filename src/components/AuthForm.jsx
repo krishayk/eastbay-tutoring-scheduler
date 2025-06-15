@@ -107,7 +107,7 @@ export default function AuthForm({ onAuth }) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 mt-10">
+    <div className="w-full max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-4 sm:mt-10">
       <h2 className="text-2xl font-bold mb-4">{isSignUp ? 'Sign Up' : 'Login'}</h2>
       {showReset ? (
         <form onSubmit={handleResetPassword} className="space-y-4">
@@ -116,12 +116,12 @@ export default function AuthForm({ onAuth }) {
             placeholder="Enter your email"
             value={resetEmail}
             onChange={e => setResetEmail(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            className="w-full p-3 rounded-md border border-blue-200 bg-white text-base sm:text-lg"
             required
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 sm:py-3 rounded-lg"
           >
             Send Password Reset Email
           </button>
@@ -139,14 +139,14 @@ export default function AuthForm({ onAuth }) {
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            className="w-full p-3 rounded-md border border-blue-200 bg-white text-base sm:text-lg"
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            className="w-full p-3 rounded-md border border-blue-200 bg-white text-base sm:text-lg"
           />
           {isSignUp && (
             <>
@@ -155,7 +155,7 @@ export default function AuthForm({ onAuth }) {
                 placeholder="Parent Name"
                 value={parentName}
                 onChange={e => setParentName(e.target.value)}
-                className="w-full p-3 rounded-md border-2 border-blue-400 bg-blue-50 text-lg"
+                className="w-full p-3 rounded-md border-2 border-blue-400 bg-blue-50 text-base sm:text-lg"
                 required
               />
               <input
@@ -163,13 +163,13 @@ export default function AuthForm({ onAuth }) {
                 placeholder="Parent Phone Number"
                 value={parentPhone}
                 onChange={e => setParentPhone(e.target.value)}
-                className="w-full p-3 rounded-md border-2 border-blue-400 bg-blue-50 text-lg"
+                className="w-full p-3 rounded-md border-2 border-blue-400 bg-blue-50 text-base sm:text-lg"
                 required
               />
               <select
                 value={packageId}
                 onChange={e => setPackageId(e.target.value)}
-                className="w-full p-3 rounded-md border border-blue-200 bg-white"
+                className="w-full p-3 rounded-md border border-blue-200 bg-white text-base sm:text-lg"
               >
                 <option value="">Select a Package</option>
                 {packages.map(pkg => (
@@ -189,7 +189,7 @@ export default function AuthForm({ onAuth }) {
                         updated[idx].name = e.target.value;
                         setChildren(updated);
                       }}
-                      className="flex-1 min-w-0 p-2 rounded border border-blue-200"
+                      className="flex-1 min-w-0 p-2 rounded border border-blue-200 text-base sm:text-lg"
                       required
                     />
                     <input
@@ -201,7 +201,7 @@ export default function AuthForm({ onAuth }) {
                         updated[idx].grade = e.target.value;
                         setChildren(updated);
                       }}
-                      className="w-full sm:w-24 min-w-0 p-2 rounded border border-blue-200"
+                      className="w-full sm:w-24 min-w-0 p-2 rounded border border-blue-200 text-base sm:text-lg"
                       required
                     />
                     <input
@@ -213,7 +213,7 @@ export default function AuthForm({ onAuth }) {
                         updated[idx].email = e.target.value;
                         setChildren(updated);
                       }}
-                      className="w-full sm:w-56 min-w-0 p-2 rounded border border-blue-200"
+                      className="w-full sm:w-56 min-w-0 p-2 rounded border border-blue-200 text-base sm:text-lg"
                     />
                     {children.length > 1 && (
                       <button
@@ -239,7 +239,7 @@ export default function AuthForm({ onAuth }) {
           {error && <div className="text-red-500 text-sm">{error}</div>}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 sm:py-3 rounded-lg"
           >
             {isSignUp ? 'Sign Up' : 'Login'}
           </button>
