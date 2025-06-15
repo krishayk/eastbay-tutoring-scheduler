@@ -29,8 +29,17 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
         console.log('Current user:', currentUser);
         let q;
         if (tutorMode && tutorName) {
-          // Show all lessons assigned to this tutor
-          q = query(collection(db, 'bookings'), where('tutor', '==', tutorName), orderBy('date', 'asc'));
+          // Debug log for tutorName
+          console.log('Filtering lessons for tutor:', tutorName);
+          // Case-insensitive filter workaround: fetch all, then filter in JS
+          q = query(collection(db, 'bookings'), orderBy('date', 'asc'));
+          const querySnapshot = await getDocs(q);
+          const lessonsList = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(lesson => lesson.tutor && lesson.tutor.toLowerCase() === tutorName.toLowerCase());
+          setLessons(lessonsList);
+          setLoading(false);
+          return;
         } else {
           // Regular user: show their own lessons
           q = query(collection(db, 'bookings'), where('userId', '==', currentUser.uid), orderBy('date', 'asc'));
@@ -117,12 +126,12 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
     );
   }
 
-  if (!loading && lessons.length === 0) {
+  if (!loading && lessons.length === 0 && tutorMode) {
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">📚</div>
         <h3 className="text-xl font-semibold text-gray-900 mb-2">No lessons scheduled</h3>
-        <p className="text-gray-600">Book your first lesson to get started!</p>
+        <p className="text-gray-600">(Filtering for tutor: {tutorName})</p>
       </div>
     );
   }
