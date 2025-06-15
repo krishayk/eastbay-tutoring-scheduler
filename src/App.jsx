@@ -144,7 +144,7 @@ export default function App() {
   };
 
   const handleAdminLogin = () => {
-    if (password === 'Admin123') setAdmin(true);
+    if (password === '!KrishayTejasOm123') setAdmin(true);
   };
 
   const handleLogout = () => {
