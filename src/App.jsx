@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { courses } from './data/courses';
-import { generateSchedule } from './utils/scheduler';
+import { generateSchedule, assignTutorPersistent } from './utils/scheduler';
 import AdminPanel from './components/AdminPanel';
 import BookingForm from './components/BookingForm';
 import AuthForm from './components/AuthForm';
@@ -174,8 +174,14 @@ export default function App() {
 
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
-    const assignedTutor = 'Krishay'; // fallback to default tutor for now
     try {
+      // Get assigned tutor using persistent assignment
+      const assignedTutor = await assignTutorPersistent({ day: data.day, time: data.time });
+      if (assignedTutor === "No Available Tutor") {
+        alert('No tutors are available at this time. Please try a different time slot.');
+        return;
+      }
+
       // Gather emails: parent, tutor, child (if present)
       const parentEmail = userProfile.email;
       let tutorEmail = '';
