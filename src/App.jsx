@@ -175,58 +175,27 @@ export default function App() {
       startDate.setHours(hour, minute, 0, 0);
       const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour session
 
-      let eventData = null;
-      if (isTutor && oauthChecked) {
-        // Use OAuth2 endpoint for tutors
-        const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event-oauth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            summary: `${data.course} with ${data.child}`,
-            description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            attendees
-          })
-        });
-        if (res.ok) {
-          eventData = await res.json();
-        } else {
-          alert('Booking failed: Could not create Google Calendar event (OAuth2).');
-        }
+      // Always use OAuth2 endpoint
+      const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event-oauth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          summary: `${data.course} with ${data.child}`,
+          description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          attendees
+        })
+      });
+      if (res.ok) {
+        const eventData = await res.json();
+        setCalendarEvent(eventData);
       } else {
-        // Use legacy endpoint for non-tutors
-        const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            summary: `${data.course} with ${data.child}`,
-            description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-            attendees
-          })
-        });
-        if (res.ok) {
-          eventData = await res.json();
-        } else {
-          alert('Booking failed: Could not create Google Calendar event.');
-        }
+        alert('Booking failed: Could not create Google Calendar event (OAuth2).');
       }
-      if (eventData) {
-        const newBooking = {
-          ...data,
-          tutor: assignedTutor,
-          userId: userProfile.id,
-          meetLink: eventData.meetLink || '',
-          eventLink: eventData.eventLink || ''
-        };
-        await addDoc(collection(db, 'bookings'), newBooking);
-        alert('Your lesson is booked! The Google Meet link is available in My Lessons.');
-      }
-    } catch (e) {
-      alert('Booking failed: Could not create Google Calendar event.');
+    } catch (err) {
+      alert('Booking failed: ' + err.message);
     }
   };
 
