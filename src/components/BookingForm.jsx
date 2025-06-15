@@ -1,31 +1,81 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import { courses } from '../data/courses';
 import { format, startOfWeek, endOfWeek, isSameDay, addWeeks, addDays, isBefore, isAfter, addHours } from 'date-fns';
 import { packages } from '../data/packages';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../utils/firebase';
+import { useAuth } from '../utils/AuthContext';
 
-export default function BookingForm({ bookings, onBook, userProfile }) {
-  const [child, setChild] = useState('');
-  const [grade, setGrade] = useState('');
+export default function BookingForm({ bookings, onBook, userProfile, onGoToSettings }) {
+  const [selectedChild, setSelectedChild] = useState('');
+  const [children, setChildren] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('');
-  const [duration, setDuration] = useState('60');
+  const [otherCourse, setOtherCourse] = useState('');
+  const [specificCourse, setSpecificCourse] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState('');
   const [recurring, setRecurring] = useState(false);
+  const [mathCourse, setMathCourse] = useState('');
+  const [gradeError, setGradeError] = useState('');
+  const { currentUser } = useAuth();
 
   const allTimes = generateTimes();
 
   // Find user's package info
   const userPackage = userProfile && packages.find(p => p.id === userProfile.packageId);
-  const userBookingsThisWeek = userProfile && selectedDate
-    ? bookings.filter(b => b.userId === userProfile.id && isSameWeek(new Date(b.date), selectedDate)).length
-    : 0;
-  const canBook = userProfile && userProfile.verified && userPackage && userBookingsThisWeek < userPackage.sessionsPerWeek;
+  // Helper to count bookings for a week
+  function countBookingsForWeek(date) {
+    return bookings.filter(b => b.userId === userProfile?.id && isSameWeek(new Date(b.date), date)).length;
+  }
+  const canBook = (() => {
+    if (!userProfile || !userProfile.verified || !userPackage) return false;
+    if (!selectedDate) return true;
+    if (recurring) {
+      // Check all 4 weeks
+      for (let i = 0; i < 4; i++) {
+        const recurDate = addWeeks(selectedDate, i);
+        if (countBookingsForWeek(recurDate) + 1 > userPackage.sessionsPerWeek) return false;
+      }
+      return true;
+    } else {
+      return countBookingsForWeek(selectedDate) < userPackage.sessionsPerWeek;
+    }
+  })();
+
+  // Fetch children from Firestore
+  useEffect(() => {
+    const fetchChildren = async () => {
+      if (currentUser) {
+        const q = query(
+          collection(db, 'children'),
+          where('userId', '==', currentUser.uid)
+        );
+        const querySnapshot = await getDocs(q);
+        const childrenList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setChildren(childrenList);
+      }
+    };
+    fetchChildren();
+  }, [currentUser]);
 
   // Only allow dates within the current week and 24+ hours in advance
   const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 0 });
+  const tomorrow = addDays(now, 1);
   const weekEnd = endOfWeek(now, { weekStartsOn: 0 });
+
+  // Generate next 7 days
+  const availableDates = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(tomorrow, i);
+    return {
+      date,
+      formatted: format(date, 'EEEE, MMMM d'),
+      short: format(date, 'EEE, MMM d')
+    };
+  });
 
   // Only show available times for the selected date
   const bookedTimes = selectedDate
@@ -48,21 +98,101 @@ export default function BookingForm({ bookings, onBook, userProfile }) {
     return true;
   });
 
+  const selectedChildData = children.find(c => c.id === selectedChild);
+  const isHighSchoolMath = selectedCourse === 'Math' && userPackage?.name.toLowerCase().includes('high school');
+  const isHighSchoolPackage = userPackage?.name.toLowerCase().includes('high school');
+  const needsSpecificCourse = isHighSchoolPackage && [
+    'English',
+    'Math',
+    'Science',
+    'Sciences (including Physics)',
+    'History',
+    'World Language',
+    'Computer Science',
+  ].includes(selectedCourse);
+  const isOther = selectedCourse === 'Other';
+
+  // Check if child's grade matches package requirements
+  const validateGrade = (child) => {
+    if (!child || !userPackage) return true;
+    
+    const grade = parseInt(child.grade);
+    const isHighSchool = grade >= 9;
+    const isAP = userPackage.name.toLowerCase().includes('ap/honors');
+    const isHighSchoolPackage = userPackage.name.toLowerCase().includes('high school');
+    
+    if (isHighSchoolPackage && !isHighSchool) {
+      setGradeError('This package is for high school students only');
+      return false;
+    }
+    if (isAP && grade < 9) {
+      setGradeError('AP/Honors package is for high school students only');
+      return false;
+    }
+    if (!isHighSchoolPackage && isHighSchool) {
+      setGradeError('This package is for elementary/middle school students only');
+      return false;
+    }
+    
+    setGradeError('');
+    return true;
+  };
+
+  const handleChildSelect = (childId) => {
+    setSelectedChild(childId);
+    const child = children.find(c => c.id === childId);
+    if (child) {
+      validateGrade(child);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!child || !grade || !selectedCourse || !selectedDate || !selectedTime) return;
+    if (!selectedChild || !selectedCourse || !selectedDate || !selectedTime) return;
+    if (isOther && !otherCourse) return;
+    if (needsSpecificCourse && !specificCourse) return;
+    if (!validateGrade(selectedChildData)) return;
+
+    const childData = children.find(c => c.id === selectedChild);
     const day = format(selectedDate, 'EEEE');
     const time = selectedTime;
+    let course = selectedCourse;
+    if (isOther) {
+      course = `Other - ${otherCourse}`;
+    } else if (needsSpecificCourse) {
+      course = `${selectedCourse} - ${specificCourse}`;
+    }
+
     // Recurring booking logic
     if (recurring) {
       for (let i = 0; i < 4; i++) {
         const recurDate = addWeeks(selectedDate, i);
-        onBook({ child, grade, course: selectedCourse, day: format(recurDate, 'EEEE'), time, duration, date: recurDate.toISOString() });
+        onBook({
+          child: childData.name,
+          grade: childData.grade,
+          course,
+          day: format(recurDate, 'EEEE'),
+          time,
+          date: recurDate.toISOString()
+        });
       }
     } else {
-      onBook({ child, grade, course: selectedCourse, day, time, duration, date: selectedDate.toISOString() });
+      onBook({
+        child: childData.name,
+        grade: childData.grade,
+        course,
+        day,
+        time,
+        date: selectedDate.toISOString()
+      });
     }
-    setChild(''); setGrade(''); setSelectedCourse(''); setSelectedDate(null); setSelectedTime(''); setRecurring(false);
+    setSelectedChild('');
+    setSelectedCourse('');
+    setSelectedDate(null);
+    setSelectedTime('');
+    setRecurring(false);
+    setMathCourse('');
+    setGradeError('');
   };
 
   return (
@@ -72,15 +202,24 @@ export default function BookingForm({ bookings, onBook, userProfile }) {
         <h2 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
           <span className="text-yellow-500">📅</span> Book your lesson
         </h2>
-        <DatePicker
-          selected={selectedDate}
-          onChange={(date) => setSelectedDate(date)}
-          inline
-          calendarClassName="!rounded-xl !border-gray-300"
-          minDate={weekStart}
-          maxDate={weekEnd}
-          filterDate={date => isAfter(date, addHours(now, 24)) && isBefore(date, addDays(weekEnd, 1))}
-        />
+        <div className="w-full">
+          <div className="grid grid-cols-1 gap-2">
+            {availableDates.map(({ date, formatted, short }) => (
+              <button
+                type="button"
+                key={formatted}
+                className={`rounded-full px-4 py-2 text-center font-semibold border transition-all ${
+                  selectedDate && isSameDay(selectedDate, date)
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'
+                }`}
+                onClick={() => setSelectedDate(date)}
+              >
+                {short}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Time Selection & Form Column */}
@@ -90,44 +229,88 @@ export default function BookingForm({ bookings, onBook, userProfile }) {
             Your account is not verified. Please wait for admin approval after payment.
           </div>
         )}
-        {userProfile?.verified && userPackage && userBookingsThisWeek >= userPackage.sessionsPerWeek && (
+        {userProfile?.verified && userPackage && !canBook && (
           <div className="bg-red-100 text-red-800 p-4 rounded mb-4 text-center font-semibold">
             You have reached your weekly booking limit for your package.
           </div>
         )}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4">
+        {children.length === 0 && (
+          <div className="bg-red-100 text-red-800 p-4 rounded mb-4 text-center font-semibold">
+            You have not added any children yet. Please go to{' '}
+            <button
+              type="button"
+              className="underline font-bold text-red-800 hover:text-red-600"
+              onClick={onGoToSettings}
+            >
+              Settings
+            </button>{' '}
+            and add a child before booking a lesson.
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4" disabled={children.length === 0}>
           <h3 className="text-lg font-bold text-blue-900 mb-2">Schedule a lesson</h3>
-          <input type="text" placeholder="Child's Name" value={child}
-            onChange={(e) => setChild(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white" />
+          
+          <select
+            value={selectedChild}
+            onChange={(e) => handleChildSelect(e.target.value)}
+            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            required
+          >
+            <option value="">Select a Child</option>
+            {children.map(child => (
+              <option key={child.id} value={child.id}>
+                {child.name} (Grade {child.grade})
+              </option>
+            ))}
+          </select>
+          {gradeError && (
+            <div className="text-red-600 text-sm">{gradeError}</div>
+          )}
 
-          <input type="text" placeholder="Grade Level" value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white" />
-
-          <select value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white">
+          <select
+            value={selectedCourse}
+            onChange={e => {
+              setSelectedCourse(e.target.value);
+              setOtherCourse('');
+              setSpecificCourse('');
+            }}
+            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            required
+          >
             <option value="">Select a Course</option>
             {courses.map(c => <option key={c}>{c}</option>)}
+            <option value="Other">Other</option>
           </select>
-
-          <select value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            className="w-full p-3 rounded-md border border-blue-200 bg-white">
-            <option value="60">1 Hour</option>
-            <option value="90">90 Minutes</option>
-          </select>
+          {isOther && (
+            <input
+              type="text"
+              placeholder="Please specify the course"
+              value={otherCourse}
+              onChange={e => setOtherCourse(e.target.value)}
+              className="w-full p-3 rounded-md border border-blue-200 bg-white mt-2"
+              required
+            />
+          )}
+          {needsSpecificCourse && (
+            <input
+              type="text"
+              placeholder={`Please specify the specific ${selectedCourse} course (e.g., Algebra II, AP English)`}
+              value={specificCourse}
+              onChange={e => setSpecificCourse(e.target.value)}
+              className="w-full p-3 rounded-md border border-blue-200 bg-white mt-2"
+              required
+            />
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Pick a time</label>
-            <div className="flex flex-col gap-2">
-              {availableTimes.length === 0 && <div className="text-gray-500">No available times for this date.</div>}
+            <div className="grid grid-cols-2 gap-2">
+              {availableTimes.length === 0 && <div className="text-gray-500 col-span-2">No available times for this date.</div>}
               {availableTimes.map(t => (
                 <button
                   type="button"
                   key={t}
-                  className={`rounded-full px-4 py-2 text-left font-semibold border transition-all ${selectedTime === t ? 'bg-blue-700 text-white' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+                  className={`rounded-full px-4 py-2 text-center font-semibold border transition-all ${selectedTime === t ? 'bg-blue-700 text-white' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'}`}
                   onClick={() => setSelectedTime(t)}
                 >
                   {t}
@@ -141,9 +324,10 @@ export default function BookingForm({ bookings, onBook, userProfile }) {
             Make this a recurring weekly lesson (next 4 weeks)
           </label>
 
-          <button type="submit"
+          <button
+            type="submit"
             className="w-full mt-4 bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold py-3 rounded-lg transition-all"
-            disabled={!canBook || !selectedTime || !selectedDate || availableTimes.length === 0}
+            disabled={!canBook || !selectedTime || !selectedDate || availableTimes.length === 0 || !selectedChild || !selectedCourse || !!gradeError}
           >
             Confirm Booking
           </button>

@@ -4,62 +4,89 @@ import { generateSchedule, assignTutor } from './utils/scheduler';
 import AdminPanel from './components/AdminPanel';
 import BookingForm from './components/BookingForm';
 import AuthForm from './components/AuthForm';
+import Settings from './components/Settings';
 import { db, auth } from './utils/firebase';
 import { collection, addDoc, onSnapshot, deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { packages } from './data/packages';
+import { format, isSameDay, addDays, differenceInCalendarDays } from 'date-fns';
+import MyLessons from './components/MyLessons';
 
 function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
-  const pkg = userProfile && packages.find(p => p.id === userProfile.packageId);
+  const pkg = userProfile?.packageId ? packages.find(p => p.id === userProfile.packageId) : null;
+  
+  // Calculate next Sunday and days until then
+  function getNextSundayInfo() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilSunday = (7 - dayOfWeek) % 7 || 7;
+    const nextSunday = addDays(today, daysUntilSunday);
+    return {
+      dateStr: format(nextSunday, 'EEEE, MMMM d, yyyy'),
+      days: daysUntilSunday
+    };
+  }
+
   return (
     <div className="max-w-xl mx-auto bg-white rounded-xl shadow-lg p-8 mt-10">
       <h2 className="text-2xl font-bold mb-4">My Package</h2>
+      {!userProfile?.verified && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-3">Account Not Verified</h3>
+          <div className="space-y-3 text-yellow-700">
+            <p>Please send this week's package payment via Zelle to <span className="font-bold">9258758136</span> (Krishay Kuchimanchi).</p>
+            <p>Make payments every Sunday to avoid missing sessions.</p>
+            <p><span className="font-bold">In the Zelle note, please include your child's name.</span></p>
+            <p>After your first payment, you'll be verified within 24 hours.</p>
+            <p>Questions? Text the number above.</p>
+          </div>
+        </div>
+      )}
       {pkg ? (
         <>
           <div className="mb-4">
-            <div className="font-semibold">{pkg.name}</div>
-            <div className="text-gray-700">${pkg.price}/week</div>
+            <div className="font-semibold text-lg text-blue-900">{pkg.name}</div>
+            <div className="text-gray-700 text-lg mt-1">${pkg.price}/week</div>
             <div className="text-sm text-gray-500 mt-2">{pkg.description}</div>
-            <div className="mt-2">Sessions per week: <span className="font-bold">{pkg.sessionsPerWeek}</span></div>
-            <div className="mt-2">Status: <span className={userProfile.verified ? 'text-green-600 font-bold' : 'text-yellow-600 font-bold'}>{userProfile.verified ? 'Verified' : 'Pending Verification'}</span></div>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Sessions per week: <span className="font-bold">{pkg.sessionsPerWeek}</span></span>
+              </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Status: <span className={userProfile.verified ? 'text-green-600 font-bold' : 'text-yellow-600 font-bold'}>{userProfile.verified ? 'Verified' : 'Pending Verification'}</span></span>
+              </div>
+              {userProfile.verified && (
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a5 5 0 00-10 0v2a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2z" />
+                  </svg>
+                  {(() => {
+                    const { dateStr, days } = getNextSundayInfo();
+                    return (
+                      <span>Next payment due: <span className="font-bold">{dateStr}</span> <span className="text-gray-600">(in {days} day{days !== 1 ? 's' : ''})</span></span>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-4">
-            <button onClick={onChangePackage} className="bg-blue-600 text-white px-4 py-2 rounded">Change Package</button>
-            <button onClick={onCancelPackage} className="bg-red-500 text-white px-4 py-2 rounded">Cancel Package</button>
+            <button onClick={onChangePackage} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">Change Package</button>
+            <button onClick={onCancelPackage} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors">Cancel Package</button>
           </div>
         </>
       ) : (
-        <div className="text-gray-600">No package selected.</div>
-      )}
-    </div>
-  );
-}
-
-function MyLessons({ bookings, userProfile, onCancel }) {
-  const myLessons = bookings.filter(b => b.userId === userProfile?.id);
-  return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 mt-10">
-      <h2 className="text-2xl font-bold mb-4">My Lessons</h2>
-      {myLessons.length === 0 ? (
-        <div className="text-gray-600">No lessons booked yet.</div>
-      ) : (
-        <div className="grid gap-4">
-          {myLessons.map((b) => {
-            const lessonDate = b.date ? new Date(b.date) : null;
-            const isFuture = lessonDate && lessonDate >= new Date();
-            return (
-              <div key={b.id} className="rounded-xl border border-gray-200 shadow p-4 flex flex-col md:flex-row md:items-center justify-between gap-2 bg-blue-50">
-                <div>
-                  <div className="font-semibold text-blue-900">{b.course}</div>
-                  <div className="text-gray-700 text-sm">{lessonDate ? lessonDate.toLocaleDateString() : '-'} at {b.time}</div>
-                  <div className="text-gray-500 text-xs">Tutor: {b.tutor}</div>
-                </div>
-                {isFuture && (
-                  <button onClick={() => onCancel(b.id)} className="bg-red-500 text-white px-4 py-2 rounded self-end md:self-auto">Cancel</button>
-                )}
-              </div>
-            );
-          })}
+        <div className="text-center py-8">
+          <div className="text-gray-600 mb-4">No package selected.</div>
+          <button onClick={onChangePackage} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors">
+            Select a Package
+          </button>
         </div>
       )}
     </div>
@@ -73,7 +100,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('package');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'package');
   const [showChange, setShowChange] = useState(false);
   const [newPackageId, setNewPackageId] = useState('');
 
@@ -99,6 +126,11 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  // Save activeTab to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
@@ -145,16 +177,15 @@ export default function App() {
     <div className="min-h-screen flex bg-[#f4f8ff]">
       {/* Sidebar */}
       <aside className="w-80 bg-white shadow-lg flex flex-col items-center py-8">
-        <div className="flex items-center mb-10 px-4 text-center">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-2">
-            <span className="text-white font-bold text-lg">O</span>
-          </div>
-          <span className="font-bold text-lg text-blue-700 leading-tight">East Bay Tutoring<br />Scheduling</span>
+        <div className="flex flex-col items-center mb-10 px-4 text-center">
+          <img src="/logo.png" alt="East Bay Tutoring Logo" className="w-16 h-16 mb-2 rounded-full shadow-lg bg-white object-contain" />
+          <span className="font-extrabold text-2xl text-blue-700 leading-tight tracking-tight drop-shadow-sm" style={{letterSpacing: '0.01em'}}>East Bay Tutoring<br />Scheduling</span>
         </div>
         <nav className="flex flex-col gap-4 w-full px-8">
           <button onClick={() => { setActiveTab('package'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'package' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Package</button>
           <button onClick={() => { setActiveTab('schedule'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'schedule' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Schedule A Lesson</button>
           <button onClick={() => { setActiveTab('lessons'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'lessons' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Lessons</button>
+          <button onClick={() => { setActiveTab('settings'); setAdmin(false); }} className={`text-left px-2 py-2 rounded ${activeTab === 'settings' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Settings</button>
           <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
         </nav>
         <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
@@ -162,14 +193,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         <header className="flex justify-end items-center p-6 bg-transparent">
-          <input
-            type="text"
-            placeholder="Search"
-            className="border rounded px-3 py-1 mr-4"
-          />
-          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-            <span className="text-gray-600">U</span>
-          </div>
+          {/* Removed search and profile picture */}
         </header>
         <div className="flex-1 flex flex-col justify-center">
           {activeTab === 'package' && !showChange && (
@@ -191,10 +215,13 @@ export default function App() {
             </div>
           )}
           {activeTab === 'schedule' && (
-            <BookingForm bookings={bookings} onBook={handleBook} userProfile={userProfile} />
+            <BookingForm bookings={bookings} onBook={handleBook} userProfile={userProfile} onGoToSettings={() => setActiveTab('settings')} />
           )}
           {activeTab === 'lessons' && (
-            <MyLessons bookings={bookings} userProfile={userProfile} onCancel={handleDelete} />
+            <MyLessons />
+          )}
+          {activeTab === 'settings' && (
+            <Settings />
           )}
           {activeTab === 'admin' && !admin && (
             <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 mt-10 text-center">

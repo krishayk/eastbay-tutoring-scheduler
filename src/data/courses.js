@@ -2,8 +2,7 @@
 export const courses = [
   "English",
   "Math",
-  "Sciences",
-  "Physics and Chemistry",
+  "Sciences (including Physics)",
   "SAT",
   "ACT",
   "College Counseling"
