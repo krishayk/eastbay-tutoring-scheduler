@@ -17,6 +17,9 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
+  const [editingMeetLinkId, setEditingMeetLinkId] = useState(null);
+  const [editingMeetLinkValue, setEditingMeetLinkValue] = useState("");
+  const [meetLinkEditError, setMeetLinkEditError] = useState("");
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -113,6 +116,22 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
       }
     } catch (err) {
       alert('Error: ' + err.message);
+    }
+  };
+
+  const handleSaveMeetLink = async (lessonId) => {
+    if (!editingMeetLinkValue.trim()) {
+      setMeetLinkEditError("Meet link cannot be empty.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'bookings', lessonId), { meetLink: editingMeetLinkValue });
+      setLessons(lessons => lessons.map(l => l.id === lessonId ? { ...l, meetLink: editingMeetLinkValue } : l));
+      setEditingMeetLinkId(null);
+      setEditingMeetLinkValue("");
+      setMeetLinkEditError("");
+    } catch (err) {
+      alert('Failed to save Meet link.');
     }
   };
 
@@ -215,9 +234,29 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                         <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
                       </div>
                     )}
-                    {lesson.meetLink && (
-                      <>
-                        <div className="mt-3">
+                    {lesson.meetLink && tutorMode && editingMeetLinkId === lesson.id ? (
+                      <div className="mt-3 flex items-center gap-2">
+                        <input
+                          type="text"
+                          className="border rounded px-3 py-2 w-64"
+                          value={editingMeetLinkValue}
+                          onChange={e => setEditingMeetLinkValue(e.target.value)}
+                        />
+                        {meetLinkEditError && (
+                          <span className="text-red-600 text-xs ml-2">{meetLinkEditError}</span>
+                        )}
+                        <button
+                          className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1 rounded"
+                          onClick={() => handleSaveMeetLink(lesson.id)}
+                        >Save</button>
+                        <button
+                          className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-3 py-1 rounded"
+                          onClick={() => { setEditingMeetLinkId(null); setEditingMeetLinkValue(""); }}
+                        >Cancel</button>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex items-center gap-2">
+                        {lesson.meetLink && lesson.meetLink.trim() !== "" ? (
                           <a
                             href={lesson.meetLink}
                             target="_blank"
@@ -229,16 +268,26 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                             </svg>
                             Join Google Meet
                           </a>
-                        </div>
-                      </>
+                        ) : (
+                          <div className="text-gray-600 text-center font-medium">
+                            The tutor will update this link before the session.
+                          </div>
+                        )}
+                        {tutorMode && (
+                          <button
+                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            onClick={() => { setEditingMeetLinkId(lesson.id); setEditingMeetLinkValue(lesson.meetLink); }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l10.607-10.607z" />
+                            </svg>
+                            Edit
+                          </button>
+                        )}
+                      </div>
                     )}
                     {!lesson.meetLink && tutorMode && (
                       <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
-                    )}
-                    {!lesson.meetLink && !tutorMode && (
-                      <div className="mt-3 text-gray-600 text-center font-medium">
-                        The tutor will update this link before the session.
-                      </div>
                     )}
                   </div>
                 ))}
