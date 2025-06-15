@@ -174,15 +174,27 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                   <div key={lesson.id} className="bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto">
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
-                      <button
-                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-green-400"
-                        onClick={() => handleCancel(lesson.id)}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Done
-                      </button>
+                      {tutorMode ? (
+                        <button
+                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-green-400"
+                          onClick={() => handleCancel(lesson.id)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Done
+                        </button>
+                      ) : (
+                        <button
+                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-red-400"
+                          onClick={() => handleCancel(lesson.id)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Cancel
+                        </button>
+                      )}
                     </div>
                     {tutorMode ? (
                       <span className="block text-gray-700 text-lg sm:text-xl font-bold mb-2">with <span className="text-black font-extrabold">{lesson.child}</span></span>
@@ -197,6 +209,12 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                       <FaClock className="text-base sm:text-lg" />
                       <span className="text-sm sm:text-base">{lesson.time} - {getEndTime(lesson.time)}</span>
                     </div>
+                    {!tutorMode && (
+                      <div className="flex items-center gap-2 text-gray-700 mt-2">
+                        <FaUser className="text-base sm:text-lg" />
+                        <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
+                      </div>
+                    )}
                     {lesson.meetLink && (
                       <>
                         <div className="mt-3">
