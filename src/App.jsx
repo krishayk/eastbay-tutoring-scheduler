@@ -12,6 +12,7 @@ import { packages } from './data/packages';
 import { format, isSameDay, addDays, differenceInCalendarDays } from 'date-fns';
 import MyLessons from './components/MyLessons';
 import { FaBars } from 'react-icons/fa';
+import WeeklySchedule from './components/WeeklySchedule';
 
 const TUTOR_EMAILS = [
   'krishay.k.30@gmail.com',
@@ -183,8 +184,11 @@ export default function App() {
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
     try {
-      // Get assigned tutor using persistent assignment
-      const assignedTutor = await assignTutorPersistent({ day: data.day, time: data.time });
+      // Use the tutor from data if provided (for recurring bookings), otherwise assign
+      let assignedTutor = data.tutor;
+      if (!assignedTutor) {
+        assignedTutor = await assignTutorPersistent({ day: data.day, time: data.time });
+      }
       if (assignedTutor === "No Available Tutor") {
         alert('No tutors are available at this time. Please try a different time slot.');
         return;
@@ -212,7 +216,8 @@ export default function App() {
       // Create Firestore booking (no Meet link)
       const newBooking = {
         ...data,
-        tutor: assignedTutor,
+        tutor: data.tutor,
+        busyTutor: data.busyTutor || null,
         userId: userProfile.id,
         date: startDate.toISOString(),
         time: data.time,
@@ -276,6 +281,7 @@ export default function App() {
           </div>
           <nav className="flex flex-col gap-4 w-full px-8">
             <button onClick={() => setActiveTab('lessons')} className={`text-left px-2 py-2 rounded ${activeTab === 'lessons' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Lessons</button>
+            <button onClick={() => setActiveTab('weekly-schedule')} className={`text-left px-2 py-2 rounded ${activeTab === 'weekly-schedule' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Weekly Schedule</button>
             <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
           </nav>
           <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
@@ -287,6 +293,7 @@ export default function App() {
           </div>
           <nav className="flex flex-col gap-4 w-full px-8">
             <button onClick={() => setActiveTab('lessons')} className={`text-left px-2 py-2 rounded ${activeTab === 'lessons' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>My Lessons</button>
+            <button onClick={() => setActiveTab('weekly-schedule')} className={`text-left px-2 py-2 rounded ${activeTab === 'weekly-schedule' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Weekly Schedule</button>
             <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
           </nav>
           <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
@@ -294,6 +301,9 @@ export default function App() {
         <main className="flex-1 flex flex-col px-2 sm:px-0">
           {activeTab === 'lessons' && (
             <MyLessons tutorMode={true} tutorName={tutorFirstName} tutorEmail={userProfile?.email} oauthChecked={oauthChecked} />
+          )}
+          {activeTab === 'weekly-schedule' && (
+            <WeeklySchedule />
           )}
           {activeTab === 'admin' && (
             <AdminPanel bookings={bookings} onDelete={handleDelete} />

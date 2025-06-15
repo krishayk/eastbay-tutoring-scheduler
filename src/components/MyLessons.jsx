@@ -32,14 +32,15 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
         console.log('Current user:', currentUser);
         let q;
         if (tutorMode && tutorName) {
-          // Debug log for tutorName
-          console.log('Filtering lessons for tutor:', tutorName);
-          // Case-insensitive filter workaround: fetch all, then filter in JS
+          // Fetch all bookings, then filter for tutor or busyTutor
           q = query(collection(db, 'bookings'), orderBy('date', 'asc'));
           const querySnapshot = await getDocs(q);
           const lessonsList = querySnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(lesson => lesson.tutor && lesson.tutor.toLowerCase() === tutorName.toLowerCase());
+            .filter(lesson =>
+              (lesson.tutor && lesson.tutor.toLowerCase() === tutorName.toLowerCase()) ||
+              (lesson.busyTutor && lesson.busyTutor.toLowerCase() === tutorName.toLowerCase())
+            );
           setLessons(lessonsList);
           setLoading(false);
           return;
@@ -152,6 +153,25 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
     return `${endHour}:${endMinute} ${endMeridian}`;
   }
 
+  // Debug tutorMode and tutorName
+  console.log('tutorMode:', tutorMode);
+  console.log('tutorName:', tutorName);
+  console.log('All lessons:', lessons);
+
+  // Filter lessons for tutors: show sessions where they are the assigned tutor OR the busyTutor
+  const filteredLessons = tutorMode
+    ? lessons.filter(
+        (lesson) => lesson.tutor === tutorName || lesson.busyTutor === tutorName
+      )
+    : lessons;
+  console.log('Filtered lessons:', filteredLessons);
+
+  // Debug logs for lessons and tutor
+  console.log('All lessons:', lessons);
+  console.log('Tutor name:', tutorName);
+  const busyLessons = lessons.filter(lesson => lesson.busyTutor === tutorName);
+  console.log('Lessons where tutor is busyTutor:', busyLessons);
+
   if (!currentUser) {
     return (
       <div className="text-center py-12">
@@ -172,6 +192,12 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
     );
   }
 
+  if (filteredLessons.length === 0) {
+    return (
+      <div className="text-gray-500 text-center">No lessons found.</div>
+    );
+  }
+
   return (
     <div className="w-full max-w-4xl mx-auto mt-2 sm:mt-6 px-1 sm:px-4">
       <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-gray-900 text-center">My Lessons</h2>
@@ -189,75 +215,118 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                   const dateB = b.date && b.date.toDate ? b.date.toDate() : new Date(b.date);
                   return dateA - dateB;
                 })
-                .map(lesson => (
-                  <div key={lesson.id} className="bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto">
-                    <div className="flex items-start justify-between mb-2 gap-2">
-                      <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
-                      {tutorMode ? (
-                        <button
-                          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-green-400"
-                          onClick={() => handleCancel(lesson.id)}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          Done
-                        </button>
-                      ) : (
-                        <button
-                          className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-red-400"
-                          onClick={() => handleCancel(lesson.id)}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                    {tutorMode ? (
-                      <span className="block text-gray-700 text-lg sm:text-xl font-bold mb-2">with <span className="text-black font-extrabold">{lesson.child}</span></span>
-                    ) : (
-                      <span className="block text-gray-700 text-base sm:text-lg font-medium mb-2">with <span className="font-bold text-black">{lesson.tutor}</span></span>
-                    )}
-                    <div className="flex items-center gap-2 text-gray-700 mb-1 mt-2">
-                      <FaCalendarAlt className="text-base sm:text-lg" />
-                      <span className="text-sm sm:text-base">{format(new Date(lesson.date), 'EEEE, MMMM d')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700 mb-1">
-                      <FaClock className="text-base sm:text-lg" />
-                      <span className="text-sm sm:text-base">{lesson.time} - {getEndTime(lesson.time)}</span>
-                    </div>
-                    {!tutorMode && (
-                      <div className="flex items-center gap-2 text-gray-700 mt-2">
-                        <FaUser className="text-base sm:text-lg" />
-                        <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
-                      </div>
-                    )}
-                    {tutorMode ? (
-                      lesson.meetLink && lesson.meetLink.trim() !== "" ? (
-                        editingMeetLinkId === lesson.id ? (
-                          <div className="mt-3 flex items-center gap-2">
-                            <input
-                              type="text"
-                              className="border rounded px-3 py-2 w-64"
-                              value={editingMeetLinkValue}
-                              onChange={e => setEditingMeetLinkValue(e.target.value)}
-                            />
-                            {meetLinkEditError && (
-                              <span className="text-red-600 text-xs ml-2">{meetLinkEditError}</span>
-                            )}
-                            <button
-                              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1 rounded"
-                              onClick={() => handleSaveMeetLink(lesson.id)}
-                            >Save</button>
-                            <button
-                              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-3 py-1 rounded"
-                              onClick={() => { setEditingMeetLinkId(null); setEditingMeetLinkValue(""); }}
-                            >Cancel</button>
-                          </div>
+                .map(lesson => {
+                  // For tutors: is this a substituted session?
+                  const isSubstituted = tutorMode && lesson.busyTutor && lesson.busyTutor.toLowerCase() === tutorName.toLowerCase() && lesson.tutor.toLowerCase() !== tutorName.toLowerCase();
+                  return (
+                    <div
+                      key={lesson.id}
+                      className={`bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto ${isSubstituted ? 'opacity-60 border-2 border-yellow-400' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
+                        {tutorMode ? (
+                          <button
+                            className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-green-400"
+                            onClick={() => handleCancel(lesson.id)}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Done
+                          </button>
                         ) : (
-                          <div className="mt-3 flex items-center gap-2">
+                          <button
+                            className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm ml-2 px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-red-400"
+                            onClick={() => handleCancel(lesson.id)}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                      {/* Show student name only for tutors, otherwise show tutor (with busy/substitute logic) */}
+                      <span className={tutorMode ? "block text-gray-700 text-lg sm:text-xl font-bold mb-2" : "block text-gray-700 text-base sm:text-lg font-medium mb-2"}>
+                        with <span className="font-bold text-black">
+                          {tutorMode
+                            ? lesson.child
+                            : lesson.busyTutor
+                              ? (<><span className="line-through text-red-600">{lesson.busyTutor}</span> <span className="text-red-600 font-semibold">(Busy)</span> <span className="text-gray-500">→</span> {lesson.tutor}</>)
+                              : lesson.tutor}
+                          {/* Substitute badge for substitute tutor */}
+                          {tutorMode && lesson.busyTutor && (
+                            <span className="ml-2 px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded font-semibold">Substituted by {lesson.tutor}</span>
+                          )}
+                        </span>
+                      </span>
+                      <div className="flex items-center gap-2 text-gray-700 mb-1 mt-2">
+                        <FaCalendarAlt className="text-base sm:text-lg" />
+                        <span className="text-sm sm:text-base">{format(new Date(lesson.date), 'EEEE, MMMM d')}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-700 mb-1">
+                        <FaClock className="text-base sm:text-lg" />
+                        <span className="text-sm sm:text-base">{lesson.time} - {getEndTime(lesson.time)}</span>
+                      </div>
+                      {!tutorMode && (
+                        <div className="flex items-center gap-2 text-gray-700 mt-2">
+                          <FaUser className="text-base sm:text-lg" />
+                          <span className="text-sm sm:text-base">{lesson.child} (Grade {lesson.grade})</span>
+                        </div>
+                      )}
+                      {tutorMode ? (
+                        lesson.meetLink && lesson.meetLink.trim() !== "" ? (
+                          editingMeetLinkId === lesson.id ? (
+                            <div className="mt-3 flex items-center gap-2">
+                              <input
+                                type="text"
+                                className="border rounded px-3 py-2 w-64"
+                                value={editingMeetLinkValue}
+                                onChange={e => setEditingMeetLinkValue(e.target.value)}
+                              />
+                              {meetLinkEditError && (
+                                <span className="text-red-600 text-xs ml-2">{meetLinkEditError}</span>
+                              )}
+                              <button
+                                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1 rounded"
+                                onClick={() => handleSaveMeetLink(lesson.id)}
+                              >Save</button>
+                              <button
+                                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-3 py-1 rounded"
+                                onClick={() => { setEditingMeetLinkId(null); setEditingMeetLinkValue(""); }}
+                              >Cancel</button>
+                            </div>
+                          ) : (
+                            <div className="mt-3 flex items-center gap-2">
+                              <a
+                                href={lesson.meetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-lg shadow transition-all text-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
+                                </svg>
+                                Join Google Meet
+                              </a>
+                              <button
+                                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                onClick={() => { setEditingMeetLinkId(lesson.id); setEditingMeetLinkValue(lesson.meetLink); }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l10.607-10.607z" />
+                                </svg>
+                                Edit
+                              </button>
+                            </div>
+                          )
+                        ) : (
+                          <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
+                        )
+                      ) : (
+                        <div className="mt-3 flex items-center gap-2">
+                          {lesson.meetLink && lesson.meetLink.trim() !== "" ? (
                             <a
                               href={lesson.meetLink}
                               target="_blank"
@@ -269,43 +338,16 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                               </svg>
                               Join Google Meet
                             </a>
-                            <button
-                              className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3 py-1 rounded shadow focus:outline-none focus:ring-2 focus:ring-blue-400"
-                              onClick={() => { setEditingMeetLinkId(lesson.id); setEditingMeetLinkValue(lesson.meetLink); }}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897l10.607-10.607z" />
-                              </svg>
-                              Edit
-                            </button>
-                          </div>
-                        )
-                      ) : (
-                        <TutorMeetLinkInput lesson={lesson} setLessons={setLessons} />
-                      )
-                    ) : (
-                      <div className="mt-3 flex items-center gap-2">
-                        {lesson.meetLink && lesson.meetLink.trim() !== "" ? (
-                          <a
-                            href={lesson.meetLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-lg shadow transition-all text-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15M18 15l3-3m0 0l-3-3m3 3H9" />
-                            </svg>
-                            Join Google Meet
-                          </a>
-                        ) : (
-                          <div className="text-gray-600 text-center font-medium">
-                            The tutor will update this link before the session.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          ) : (
+                            <div className="text-gray-600 text-center font-medium">
+                              The tutor will update this link before the session.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         ))}
