@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { courses } from './data/courses';
-import { generateSchedule, assignTutor } from './utils/scheduler';
+import { generateSchedule, assignTutorPersistent } from './utils/scheduler';
 import AdminPanel from './components/AdminPanel';
 import BookingForm from './components/BookingForm';
 import AuthForm from './components/AuthForm';
@@ -11,6 +11,12 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { packages } from './data/packages';
 import { format, isSameDay, addDays, differenceInCalendarDays } from 'date-fns';
 import MyLessons from './components/MyLessons';
+
+const TUTOR_EMAILS = [
+  'krishay.k.30@gmail.com',
+  'omjoshi823@gmail.com',
+  'kanneboinatejas@gmail.com'
+];
 
 function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
   const pkg = userProfile?.packageId ? packages.find(p => p.id === userProfile.packageId) : null;
@@ -34,7 +40,7 @@ function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
           <h3 className="text-lg font-semibold text-yellow-800 mb-3">Account Not Verified</h3>
           <div className="space-y-3 text-yellow-700">
-            <p>Please send this week's package payment via Zelle to <span className="font-bold">9258758136</span> (Krishay Kuchimanchi).</p>
+            <p>Please send this week's package payment via Zelle to <span className="font-bold">9258758136</span> (The name may be listed under Krishay Kuchimanchi).</p>
             <p>Make payments every Sunday to avoid missing sessions.</p>
             <p><span className="font-bold">In the Zelle note, please include your child's name.</span></p>
             <p>After your first payment, you'll be verified within 24 hours.</p>
@@ -61,19 +67,6 @@ function MyPackage({ userProfile, onChangePackage, onCancelPackage }) {
                 </svg>
                 <span>Status: <span className={userProfile.verified ? 'text-green-600 font-bold' : 'text-yellow-600 font-bold'}>{userProfile.verified ? 'Verified' : 'Pending Verification'}</span></span>
               </div>
-              {userProfile.verified && (
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a5 5 0 00-10 0v2a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2z" />
-                  </svg>
-                  {(() => {
-                    const { dateStr, days } = getNextSundayInfo();
-                    return (
-                      <span>Next payment due: <span className="font-bold">{dateStr}</span> <span className="text-gray-600">(in {days} day{days !== 1 ? 's' : ''})</span></span>
-                    );
-                  })()}
-                </div>
-              )}
             </div>
           </div>
           <div className="flex gap-4">
@@ -103,6 +96,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'package');
   const [showChange, setShowChange] = useState(false);
   const [newPackageId, setNewPackageId] = useState('');
+  const [calendarEvent, setCalendarEvent] = useState(null);
+  const meetModalRef = useRef();
+  const [isTutor, setIsTutor] = useState(false);
+  const [oauthChecked, setOauthChecked] = useState(false);
 
   // Auth state
   useEffect(() => {
@@ -132,11 +129,104 @@ export default function App() {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
+  // Check if user is a tutor
+  useEffect(() => {
+    if (userProfile && TUTOR_EMAILS.includes(userProfile.email)) {
+      setIsTutor(true);
+    } else {
+      setIsTutor(false);
+    }
+  }, [userProfile]);
+
+  // Check OAuth2 session (for tutors)
+  useEffect(() => {
+    if (isTutor) {
+      fetch('https://calendar-backend-tejy.onrender.com/api/check-auth', {
+        credentials: 'include'
+      })
+        .then(res => res.json())
+        .then(data => setOauthChecked(data.authenticated))
+        .catch(() => setOauthChecked(false));
+    }
+  }, [isTutor]);
+
   const handleBook = async (data) => {
     if (!userProfile || !userProfile.verified) return;
-    const assignedTutor = assignTutor(data, bookings);
-    const newBooking = { ...data, tutor: assignedTutor, userId: userProfile.id };
-    await addDoc(collection(db, 'bookings'), newBooking);
+    const assignedTutor = await assignTutorPersistent(data);
+    // Google Calendar integration
+    try {
+      // Gather emails: parent, tutor, child (if present)
+      const parentEmail = userProfile.email;
+      let tutorEmail = '';
+      if (assignedTutor === 'Krishay') tutorEmail = 'krishay.k.30@gmail.com';
+      else if (assignedTutor === 'Om') tutorEmail = 'omjoshi823@gmail.com';
+      else if (assignedTutor === 'Tejas') tutorEmail = 'kanneboinatejas@gmail.com';
+      const childEmail = data.childEmail || '';
+      const attendees = [parentEmail, tutorEmail];
+      if (childEmail) attendees.push(childEmail);
+
+      // Format start/end times (assume data.date is ISO string, data.time is e.g. '2:30 PM')
+      const startDate = new Date(data.date);
+      const [time, meridian] = data.time.split(' ');
+      let [hour, minute] = time.split(':').map(Number);
+      if (meridian === 'PM' && hour !== 12) hour += 12;
+      if (meridian === 'AM' && hour === 12) hour = 0;
+      startDate.setHours(hour, minute, 0, 0);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour session
+
+      let eventData = null;
+      if (isTutor && oauthChecked) {
+        // Use OAuth2 endpoint for tutors
+        const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event-oauth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            summary: `${data.course} with ${data.child}`,
+            description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            attendees
+          })
+        });
+        if (res.ok) {
+          eventData = await res.json();
+        } else {
+          alert('Booking failed: Could not create Google Calendar event (OAuth2).');
+        }
+      } else {
+        // Use legacy endpoint for non-tutors
+        const res = await fetch('https://calendar-backend-tejy.onrender.com/api/create-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            summary: `${data.course} with ${data.child}`,
+            description: `Tutoring session for ${data.child} (Grade ${data.grade})`,
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            attendees
+          })
+        });
+        if (res.ok) {
+          eventData = await res.json();
+        } else {
+          alert('Booking failed: Could not create Google Calendar event.');
+        }
+      }
+      if (eventData) {
+        const newBooking = {
+          ...data,
+          tutor: assignedTutor,
+          userId: userProfile.id,
+          meetLink: eventData.meetLink || '',
+          eventLink: eventData.eventLink || ''
+        };
+        await addDoc(collection(db, 'bookings'), newBooking);
+        alert('Your lesson is booked! The Google Meet link is available in My Lessons.');
+      }
+    } catch (e) {
+      alert('Booking failed: Could not create Google Calendar event.');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -189,6 +279,15 @@ export default function App() {
           <button onClick={() => setActiveTab('admin')} className={`text-left px-2 py-2 rounded ${activeTab === 'admin' ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-blue-50'}`}>Admin Only</button>
         </nav>
         <button onClick={handleLogout} className="mt-10 bg-gray-200 px-4 py-2 rounded">Logout</button>
+        {isTutor && !oauthChecked && (
+          <a
+            href="https://calendar-backend-tejy.onrender.com/auth/google"
+            className="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-lg shadow text-lg flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-6 h-6"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.23l6.9-6.9C35.64 2.36 30.18 0 24 0 14.82 0 6.73 5.48 2.69 13.44l8.06 6.26C12.6 13.13 17.88 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.5c0-1.64-.15-3.22-.43-4.74H24v9.04h12.4c-.54 2.9-2.18 5.36-4.64 7.04l7.18 5.6C43.27 37.27 46.1 31.4 46.1 24.5z"/><path fill="#FBBC05" d="M10.75 28.7c-1.1-3.3-1.1-6.8 0-10.1l-8.06-6.26C.9 16.36 0 20.06 0 24c0 3.94.9 7.64 2.69 11.66l8.06-6.26z"/><path fill="#EA4335" d="M24 48c6.18 0 11.64-2.04 15.64-5.54l-7.18-5.6c-2.01 1.35-4.6 2.14-8.46 2.14-6.12 0-11.4-3.63-13.25-8.7l-8.06 6.26C6.73 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
+            Sign in with Google
+          </a>
+        )}
       </aside>
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
