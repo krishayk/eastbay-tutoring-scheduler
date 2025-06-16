@@ -123,6 +123,22 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
     return nextDate;
   }
 
+  // Helper to get end time for a slot (1 hour after start)
+  function getEndTime(startTime) {
+    const [time, meridian] = startTime.split(' ');
+    let [hour, minute] = time.split(':').map(Number);
+    if (meridian === 'PM' && hour !== 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+    const startDate = new Date(2000, 0, 1, hour, minute);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    let endHour = endDate.getHours();
+    let endMinute = endDate.getMinutes();
+    let endMeridian = endHour >= 12 ? 'PM' : 'AM';
+    endHour = ((endHour + 11) % 12) + 1;
+    endMinute = endMinute.toString().padStart(2, '0');
+    return `${endHour}:${endMinute} ${endMeridian}`;
+  }
+
   // Compute statistics for each tutor
   const tutorStats = tutors.map(tutor => {
     const now = new Date();
@@ -298,7 +314,7 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                                 <td className="p-3">{b.course}</td>
                                 <td className="p-3">{b.day}</td>
                                 <td className="p-3">{b.date ? format(new Date(b.date), 'MMMM d') : ''}</td>
-                                <td className="p-3">{b.time}</td>
+                                <td className="p-3">{b.time} - {getEndTime(b.time)}</td>
                                 <td className="p-3">
                                   <select
                                     value={newTutor}
@@ -322,7 +338,7 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                                 <td className="p-3">{b.course}</td>
                                 <td className="p-3">{b.day}</td>
                                 <td className="p-3">{b.date ? format(new Date(b.date), 'MMMM d') : ''}</td>
-                                <td className="p-3">{b.time}</td>
+                                <td className="p-3">{b.time} - {getEndTime(b.time)}</td>
                                 <td className="p-3">{b.tutor}</td>
                                 <td className="p-3 flex flex-wrap gap-2">
                                   <button onClick={() => handleEditBooking(b)} className="bg-blue-500 text-white px-3 py-1 rounded shadow hover:bg-blue-600 transition">Edit</button>

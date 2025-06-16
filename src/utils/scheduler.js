@@ -85,28 +85,29 @@ export async function assignTutorPersistent(timeObj, childId, course, bookingDat
       } else {
         console.log('Tutor is busy, looking for substitute...');
         // Find a substitute
-        const availableTutors = tutors.filter(tutor => tutor !== existingTutor);
-        for (const subTutor of availableTutors) {
+        const availableTutors = [];
+        for (const subTutor of tutors) {
+          if (subTutor === existingTutor) continue;
           const subUid = getTutorUid(subTutor);
-          console.log('Checking substitute tutor:', subTutor, 'with UID:', subUid);
-          
           const subSnap = await getDoc(doc(db, 'tutorSchedules', subUid));
           let subBusy = false;
           if (subSnap.exists()) {
             const subUnavailable = subSnap.data().unavailableSlots || {};
-            console.log('Found substitute unavailable slots:', subUnavailable);
-            
             const recurringKey = `${day}-${time}`;
             const weekKey = weekStartTs !== null ? getWeekKey(day, time, weekStartTs.toString()) : null;
             if (subUnavailable[recurringKey] || (weekKey && subUnavailable[weekKey])) {
-              console.log('Substitute is busy');
               subBusy = true;
             }
           }
           if (!subBusy) {
-            console.log('Found available substitute:', subTutor);
-            return { tutor: subTutor, busyTutor: existingTutor };
+            availableTutors.push(subTutor);
           }
+        }
+        if (availableTutors.length > 0) {
+          const randomIdx = Math.floor(Math.random() * availableTutors.length);
+          const chosenTutor = availableTutors[randomIdx];
+          console.log('Randomly selected substitute:', chosenTutor);
+          return { tutor: chosenTutor, busyTutor: existingTutor };
         }
         console.log('No available substitutes found');
         return "No Available Tutor";

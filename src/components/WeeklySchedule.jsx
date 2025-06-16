@@ -99,6 +99,22 @@ async function reassignConflictingLessons(currentUser, unavailableSlots) {
   }
 }
 
+// Helper to get end time for a slot (1 hour after start)
+function getEndTime(startTime) {
+  const [time, meridian] = startTime.split(' ');
+  let [hour, minute] = time.split(':').map(Number);
+  if (meridian === 'PM' && hour !== 12) hour += 12;
+  if (meridian === 'AM' && hour === 12) hour = 0;
+  const startDate = new Date(2000, 0, 1, hour, minute);
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  let endHour = endDate.getHours();
+  let endMinute = endDate.getMinutes();
+  let endMeridian = endHour >= 12 ? 'PM' : 'AM';
+  endHour = ((endHour + 11) % 12) + 1;
+  endMinute = endMinute.toString().padStart(2, '0');
+  return `${endHour}:${endMinute} ${endMeridian}`;
+}
+
 export default function WeeklySchedule() {
   const [unavailableSlots, setUnavailableSlots] = useState({});
   const [selectedWeek, setSelectedWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -299,7 +315,7 @@ export default function WeeklySchedule() {
             <tbody>
               {TIME_SLOTS.map(time => (
                 <tr key={time}>
-                  <td className="p-4 border-b text-center font-medium bg-gray-50 sticky left-0 z-10">{time}</td>
+                  <td className="p-4 border-b text-center font-medium bg-gray-50 sticky left-0 z-10">{time} - {getEndTime(time)}</td>
                   {DAYS.map(day => {
                     const slotState = getSlotState(day, time);
                     const isUnavailable = slotState === 'unavailable';
@@ -340,7 +356,7 @@ export default function WeeklySchedule() {
                         {/* Floating tooltip */}
                         {hoveredSlot === `${day}-${time}` && (
                           <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 bg-white border border-gray-300 rounded shadow-lg px-3 py-2 text-xs text-gray-800 z-20 whitespace-nowrap animate-fade-in">
-                            {day}, {time} <br />
+                            {day}, {time} - {getEndTime(time)} <br />
                             {isRecurring 
                               ? 'Recurring Unavailable'
                               : isUnavailable 

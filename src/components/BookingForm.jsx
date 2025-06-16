@@ -78,15 +78,27 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
     };
   });
 
-  // Only show available times for the selected date
-  const bookedTimes = selectedDate
-    ? bookings.filter(b => isSameDay(new Date(b.date), selectedDate)).map(b => b.time)
-    : [];
+  // Remove already booked times for the selected date
+  const bookedTimes = bookings
+    .filter(b => b.date && selectedDate && new Date(b.date).toDateString() === selectedDate.toDateString())
+    .map(b => b.time);
 
-  // Filter available times: only show times where at least one tutor is available
+  // Filter available times: only show times where at least one tutor is available and at least 24 hours from now
   const availableTimes = allTimes.filter(time => {
     const day = selectedDate ? format(selectedDate, 'EEEE') : null;
     if (!day) return true; // If no day selected, show all
+    // Exclude times already booked
+    if (bookedTimes.includes(time)) return false;
+    // Exclude times less than 24 hours from now
+    if (selectedDate) {
+      const [hour, minute, meridian] = time.match(/(\d+):(\d+) (AM|PM)/).slice(1);
+      let h = parseInt(hour, 10);
+      if (meridian === 'PM' && h !== 12) h += 12;
+      if (meridian === 'AM' && h === 12) h = 0;
+      const slotDate = new Date(selectedDate);
+      slotDate.setHours(h, parseInt(minute, 10), 0, 0);
+      if (isBefore(slotDate, addHours(new Date(), 24))) return false;
+    }
     // Check if at least one tutor is available
     return ["Krishay", "Om", "Tejas"].some(tutor => tutorAvailability[tutor](day, time));
   });
@@ -225,13 +237,27 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
     }
   };
 
+  // Helper to get end time for a slot (1 hour after start)
+  function getEndTime(startTime) {
+    const [time, meridian] = startTime.split(' ');
+    let [hour, minute] = time.split(':').map(Number);
+    if (meridian === 'PM' && hour !== 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+    const startDate = new Date(2000, 0, 1, hour, minute);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    let endHour = endDate.getHours();
+    let endMinute = endDate.getMinutes();
+    let endMeridian = endHour >= 12 ? 'PM' : 'AM';
+    endHour = ((endHour + 11) % 12) + 1;
+    endMinute = endMinute.toString().padStart(2, '0');
+    return `${endHour}:${endMinute} ${endMeridian}`;
+  }
+
   return (
-    <div className="flex flex-col sm:flex-row justify-center items-start gap-4 sm:gap-8 w-full max-w-4xl mx-auto mt-4 sm:mt-10">
+    <div className="flex flex-row flex-nowrap justify-center items-start gap-8 w-full max-w-4xl mx-auto mt-4 sm:mt-10">
       {/* Calendar Column */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 min-w-[320px] flex flex-col items-center">
-        <h2 className="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
-          <span className="text-yellow-500">📅</span> Book your lesson
-        </h2>
+      <div className="bg-white rounded-2xl shadow-lg p-10 min-w-[380px] flex flex-col items-center">
+        <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center gap-2">Pick a date</h2>
         <div className="w-full">
           <div className="grid grid-cols-1 gap-2">
             {availableDates.map(({ date, formatted, short }) => (
@@ -277,9 +303,8 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
             and add a child before booking a lesson.
           </div>
         )}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4" disabled={children.length === 0}>
-          <h3 className="text-lg font-bold text-blue-900 mb-2">Schedule a lesson</h3>
-          
+        <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-white rounded-xl shadow-lg p-8 flex flex-col gap-6">
+          <h2 className="text-2xl font-bold text-blue-900 mb-2">Schedule a Lesson (1 Hour)</h2>
           <select
             value={selectedChild}
             onChange={(e) => handleChildSelect(e.target.value)}
@@ -333,29 +358,29 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pick a time</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-              value={selectedTime}
-              onChange={e => setSelectedTime(e.target.value)}
-              required
-            >
-              <option value="">Select a time</option>
-              {availableTimes.map(time => (
-                <option key={time} value={time}>{time}</option>
+            <div className="grid grid-cols-2 gap-2">
+              {availableTimes.length === 0 && <div className="text-gray-500 col-span-2">No available times for this date.</div>}
+              {availableTimes.map(t => (
+                <button
+                  type="button"
+                  key={t}
+                  className={`rounded-full px-4 py-2 text-center font-semibold border transition-all ${selectedTime === t ? 'bg-blue-700 text-white' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+                  onClick={() => setSelectedTime(t)}
+                >
+                  {t} - {getEndTime(t)}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 mt-2">
             <input type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
             Make this a recurring weekly lesson (next 4 weeks)
           </label>
-
           <button
             type="submit"
-            className="w-full mt-4 bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold py-3 rounded-lg transition-all"
-            disabled={!canBook || !selectedTime || !selectedDate || availableTimes.length === 0 || !selectedChild || !selectedCourse || !!gradeError}
+            className="w-full bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold py-3 px-6 rounded-lg shadow transition-all text-lg mt-4 disabled:opacity-50"
+            disabled={!canBook || children.length === 0}
           >
             Confirm Booking
           </button>
