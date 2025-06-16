@@ -14,6 +14,12 @@ const timesList = [
 ];
 const tutors = ["Krishay", "Om", "Tejas"];
 
+const TUTOR_EMAILS = [
+  'krishay.k.30@gmail.com',
+  'omjoshi823@gmail.com',
+  'kanneboinatejas@gmail.com'
+];
+
 export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
   const [users, setUsers] = useState([]);
   const [userChildren, setUserChildren] = useState({});
@@ -147,6 +153,14 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
     return { tutor, completed, upcoming };
   });
 
+  const handleToggleAdmin = async (userId, isAdmin) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { isAdmin: !isAdmin });
+    } catch (error) {
+      alert('Failed to update admin status.');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-xl shadow-lg p-6">
@@ -168,8 +182,10 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                 ))}
               </div>
             </div>
+
+            {/* Client Users Section */}
             <div className="mb-10 bg-blue-50 rounded-xl shadow p-6 border border-blue-200">
-              <h3 className="text-2xl font-semibold mb-4 text-blue-700 border-b border-blue-200 pb-2">Users</h3>
+              <h3 className="text-2xl font-semibold mb-4 text-blue-700 border-b border-blue-200 pb-2">Client Users</h3>
               <div className="overflow-x-auto rounded-lg">
                 <table className="w-full text-left text-sm">
                   <thead>
@@ -184,7 +200,7 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u, i) => {
+                    {users.filter(u => !u.isAdmin && !TUTOR_EMAILS.includes(u.email)).map((u, i) => {
                       const pkg = packages.find(p => p.id === u.packageId);
                       return (
                         <tr key={u.id} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition`}>
@@ -216,6 +232,7 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                             ) : (
                               <button onClick={() => handleVerify(u.id, true)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Verify</button>
                             )}
+                            <button onClick={() => handleToggleAdmin(u.id, u.isAdmin)} className="bg-purple-600 text-white px-3 py-1 rounded shadow hover:bg-purple-700 transition">Make Admin</button>
                             <button onClick={() => handleDeleteUser(u.id, u.email)} className="bg-red-600 text-white px-3 py-1 rounded shadow hover:bg-red-700 transition">Delete</button>
                           </td>
                         </tr>
@@ -225,6 +242,71 @@ export default function AdminPanel({ bookings, onDelete, onGoToSettings }) {
                 </table>
               </div>
             </div>
+
+            {/* Admin Users Section */}
+            <div className="mb-10 bg-blue-50 rounded-xl shadow p-6 border border-blue-200">
+              <h3 className="text-2xl font-semibold mb-4 text-blue-700 border-b border-blue-200 pb-2">Admin Users</h3>
+              <div className="overflow-x-auto rounded-lg">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b bg-blue-100">
+                      <th className="p-3 font-semibold">Email</th>
+                      <th className="p-3 font-semibold">Parent Name</th>
+                      <th className="p-3 font-semibold">Parent Phone</th>
+                      <th className="p-3 font-semibold">Child Name</th>
+                      <th className="p-3 font-semibold">Package</th>
+                      <th className="p-3 font-semibold">Verified</th>
+                      <th className="p-3 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.filter(u => u.isAdmin || TUTOR_EMAILS.includes(u.email)).map((u, i) => {
+                      const pkg = packages.find(p => p.id === u.packageId);
+                      return (
+                        <tr key={u.id} className={`border-t ${i % 2 === 0 ? 'bg-white' : 'bg-blue-50'} hover:bg-blue-100 transition`}>
+                          <td className="p-3">{u.email}</td>
+                          <td className="p-3">{u.parentName || '-'}</td>
+                          <td className="p-3">{u.parentPhone || '-'}</td>
+                          <td className="p-3">{
+                            userChildren[u.id]?.length
+                              ? userChildren[u.id].map((child, idx) => (
+                                  <div key={child.name + child.grade + child.email}>
+                                    {child.name}
+                                    {child.grade && <span className="text-gray-500"> (Grade {child.grade})</span>}
+                                    {child.email && <span className="text-gray-400 text-xs ml-1">[{child.email}]</span>}
+                                    {idx !== userChildren[u.id].length - 1 && <span>, </span>}
+                                  </div>
+                                ))
+                              : '-'}</td>
+                          <td className="p-3">{pkg ? pkg.name : '-'}</td>
+                          <td className="p-3">
+                            {u.verified ? (
+                              <span className="inline-block px-2 py-1 text-xs font-bold rounded bg-green-100 text-green-700">Verified</span>
+                            ) : (
+                              <span className="inline-block px-2 py-1 text-xs font-bold rounded bg-yellow-100 text-yellow-700">Pending</span>
+                            )}
+                          </td>
+                          <td className="p-3 flex flex-wrap gap-2">
+                            {u.verified ? (
+                              <button onClick={() => handleVerify(u.id, false)} className="bg-yellow-500 text-white px-3 py-1 rounded shadow hover:bg-yellow-600 transition">Unverify</button>
+                            ) : (
+                              <button onClick={() => handleVerify(u.id, true)} className="bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 transition">Verify</button>
+                            )}
+                            {!TUTOR_EMAILS.includes(u.email) && (
+                              <>
+                                <button onClick={() => handleToggleAdmin(u.id, u.isAdmin)} className="bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition">Make Client</button>
+                              </>
+                            )}
+                            <button onClick={() => handleDeleteUser(u.id, u.email)} className="bg-red-600 text-white px-3 py-1 rounded shadow hover:bg-red-700 transition">Delete</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div className="h-8" />
             <div className="bg-blue-50 rounded-xl shadow p-6 border border-blue-200">
               <h3 className="text-2xl font-semibold mb-4 text-blue-700 border-b border-blue-200 pb-2">Bookings</h3>
