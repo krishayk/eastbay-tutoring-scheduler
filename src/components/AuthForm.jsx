@@ -49,7 +49,8 @@ export default function AuthForm({ onAuth }) {
             grade: child.grade,
             email: child.email || '',
             userId: userCred.user.uid,
-            createdAt: new Date()
+            createdAt: new Date(),
+            preferredTutor: child.preferredTutor || '',
           });
         }
         setShowPayment(true);
@@ -215,6 +216,21 @@ export default function AuthForm({ onAuth }) {
                       }}
                       className="w-full sm:w-56 min-w-0 p-2 rounded border border-blue-200 text-base sm:text-lg"
                     />
+                    <select
+                      value={child.preferredTutor || ''}
+                      onChange={e => {
+                        const updated = [...children];
+                        updated[idx].preferredTutor = e.target.value;
+                        setChildren(updated);
+                      }}
+                      className="w-full sm:w-40 min-w-0 p-2 rounded border border-blue-200 text-base sm:text-lg"
+                      required
+                    >
+                      <option value="">Select Tutor</option>
+                      <option value="Krishay">Krishay</option>
+                      <option value="Om">Om</option>
+                      <option value="Tejas">Tejas</option>
+                    </select>
                     {children.length > 1 && (
                       <button
                         type="button"

@@ -55,7 +55,8 @@ async function reassignConflictingLessons(currentUser, unavailableSlots) {
         if (typeof result === 'object' && result.tutor && result.busyTutor) {
           await updateDoc(doc(db, 'bookings', bookingDoc.id), {
             tutor: result.tutor,
-            busyTutor: result.busyTutor
+            busyTutor: result.busyTutor,
+            needsReschedule: true
           });
           substitutions++;
           console.log(`Booking ${bookingDoc.id} reassigned to substitute:`, result.tutor);

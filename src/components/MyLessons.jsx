@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { useAuth } from '../utils/AuthContext';
-import { format, startOfWeek } from 'date-fns';
+import { format, startOfWeek, parseISO, isBefore } from 'date-fns';
 import { FaCalendarAlt, FaClock, FaUser } from 'react-icons/fa';
 
 console.log('🔥🔥🔥 MyLessons component is mounted! 🔥🔥🔥');
@@ -49,12 +49,33 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
           q = query(collection(db, 'bookings'), where('userId', '==', currentUser.uid), orderBy('date', 'asc'));
         }
         const querySnapshot = await getDocs(q);
-        const lessonsList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        console.log('Fetched lessons:', lessonsList);
-        setLessons(lessonsList);
+        const lessonsData = await Promise.all(
+          querySnapshot.docs.map(async (bookingDoc) => {
+            const booking = { id: bookingDoc.id, ...bookingDoc.data() };
+            let tutorInfo = { id: '', name: booking.tutor || 'Unknown Tutor', email: 'No email available' };
+            if (booking.tutorId) {
+              const tutorRef = doc(db, 'users', booking.tutorId);
+              const tutorDoc = await getDoc(tutorRef);
+              const tutorData = tutorDoc.data();
+              tutorInfo = {
+                id: booking.tutorId,
+                name: tutorData?.name || booking.tutor || 'Unknown Tutor',
+                email: tutorData?.email || 'No email available'
+              };
+            }
+            return {
+              ...booking,
+              tutor: tutorInfo
+            };
+          })
+        );
+        // Sort lessons by date and time
+        const sortedLessons = lessonsData.sort((a, b) => {
+          const dateA = parseISO(a.date);
+          const dateB = parseISO(b.date);
+          return dateA - dateB;
+        });
+        setLessons(sortedLessons);
       } catch (error) {
         console.error('Error fetching lessons:', error);
       } finally {
@@ -217,11 +238,12 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                 })
                 .map(lesson => {
                   // For tutors: is this a substituted session?
-                  const isSubstituted = tutorMode && lesson.busyTutor && lesson.busyTutor.toLowerCase() === tutorName.toLowerCase() && lesson.tutor.toLowerCase() !== tutorName.toLowerCase();
+                  const isSubstituted = tutorMode && lesson.busyTutor && lesson.busyTutor.toLowerCase() === tutorName?.toLowerCase() && lesson.tutor.name.toLowerCase() !== tutorName?.toLowerCase();
+                  const needsReschedule = lesson.needsReschedule;
                   return (
                     <div
                       key={lesson.id}
-                      className={`bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto ${isSubstituted ? 'opacity-60 border-2 border-yellow-400' : ''}`}
+                      className={`bg-white rounded-2xl shadow p-2 sm:p-6 flex flex-col min-h-[200px] sm:min-h-[220px] w-full max-w-2xl mx-auto ${isSubstituted ? 'opacity-60 border-2 border-yellow-400' : ''} ${needsReschedule ? 'border-2 border-red-500 bg-red-50' : ''}`}
                     >
                       <div className="flex items-start justify-between mb-2 gap-2">
                         <span className="text-lg sm:text-xl font-bold text-blue-900 break-words leading-snug">{lesson.course}</span>
@@ -253,11 +275,11 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                           {tutorMode
                             ? lesson.child
                             : lesson.busyTutor
-                              ? (<><span className="line-through text-red-600">{lesson.busyTutor}</span> <span className="text-red-600 font-semibold">(Busy)</span> <span className="text-gray-500">→</span> {lesson.tutor}</>)
-                              : lesson.tutor}
+                              ? (<><span className="line-through text-red-600">{lesson.busyTutor}</span> <span className="text-red-600 font-semibold">(Busy)</span> <span className="text-gray-500">→</span> {lesson.tutor.name}</>)
+                              : lesson.tutor.name}
                           {/* Substitute badge for substitute tutor */}
                           {tutorMode && lesson.busyTutor && (
-                            <span className="ml-2 px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded font-semibold">Substituted by {lesson.tutor}</span>
+                            <span className="ml-2 px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded font-semibold">Substituted by {lesson.tutor.name}</span>
                           )}
                         </span>
                       </span>
@@ -343,6 +365,17 @@ export default function MyLessons({ tutorMode = false, tutorName, tutorEmail, oa
                               The tutor will update this link before the session.
                             </div>
                           )}
+                        </div>
+                      )}
+                      {needsReschedule && (
+                        <div className="mt-3 flex flex-col items-center">
+                          <span className="text-red-600 font-semibold mb-2">This session needs to be rescheduled due to tutor unavailability.</span>
+                          <button
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded shadow"
+                            onClick={() => alert('Reschedule flow coming soon!')}
+                          >
+                            Reschedule
+                          </button>
                         </div>
                       )}
                     </div>

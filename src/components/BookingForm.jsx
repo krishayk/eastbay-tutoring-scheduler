@@ -3,7 +3,7 @@ import DatePicker from 'react-datepicker';
 import { courses } from '../data/courses';
 import { format, startOfWeek, endOfWeek, isSameDay, addWeeks, addDays, isBefore, isAfter, addHours } from 'date-fns';
 import { packages } from '../data/packages';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { useAuth } from '../utils/AuthContext';
 import { assignTutorPersistent, tutorAvailability } from '../utils/scheduler';
@@ -20,6 +20,15 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
   const [mathCourse, setMathCourse] = useState('');
   const [gradeError, setGradeError] = useState('');
   const { currentUser } = useAuth();
+  const [subject, setSubject] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [weeksToBook, setWeeksToBook] = useState(4);
+  const [isPermanent, setIsPermanent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedTutor, setSelectedTutor] = useState('');
+  const [selectedTutorId, setSelectedTutorId] = useState('');
+  const [tutorUnavailableSlots, setTutorUnavailableSlots] = useState({});
 
   const allTimes = generateTimes();
 
@@ -83,7 +92,36 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
     .filter(b => b.date && selectedDate && new Date(b.date).toDateString() === selectedDate.toDateString())
     .map(b => b.time);
 
-  // Filter available times: only show times where at least one tutor is available and at least 24 hours from now
+  // Fetch unavailable slots and tutorId for selected tutor
+  useEffect(() => {
+    const fetchTutorUnavailable = async () => {
+      if (!selectedTutor) {
+        setTutorUnavailableSlots({});
+        setSelectedTutorId('');
+        return;
+      }
+      // Find the tutor's user document by name
+      const tutorsQuery = query(collection(db, 'users'), where('name', '==', selectedTutor));
+      const tutorsSnap = await getDocs(tutorsQuery);
+      if (!tutorsSnap.empty) {
+        const tutorDoc = tutorsSnap.docs[0];
+        setSelectedTutorId(tutorDoc.id);
+        const scheduleRef = doc(db, 'tutorSchedules', tutorDoc.id);
+        const scheduleSnap = await getDoc(scheduleRef);
+        if (scheduleSnap.exists()) {
+          setTutorUnavailableSlots(scheduleSnap.data().unavailableSlots || {});
+        } else {
+          setTutorUnavailableSlots({});
+        }
+      } else {
+        setTutorUnavailableSlots({});
+        setSelectedTutorId('');
+      }
+    };
+    fetchTutorUnavailable();
+  }, [selectedTutor]);
+
+  // Filter available times: only show times where at least one tutor is available, at least 24 hours from now, and not blocked for selected tutor
   const availableTimes = allTimes.filter(time => {
     const day = selectedDate ? format(selectedDate, 'EEEE') : null;
     if (!day) return true; // If no day selected, show all
@@ -99,7 +137,18 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
       slotDate.setHours(h, parseInt(minute, 10), 0, 0);
       if (isBefore(slotDate, addHours(new Date(), 24))) return false;
     }
-    // Check if at least one tutor is available
+    // If a tutor is selected, filter out their blocked slots (unavailable or recurring for both weekKey and key)
+    if (selectedTutor && day) {
+      const key = `${day}-${time}`;
+      const weekKey = `${key}-${startOfWeek(selectedDate, { weekStartsOn: 1 }).getTime()}`;
+      if (
+        tutorUnavailableSlots[weekKey] === 'unavailable' ||
+        tutorUnavailableSlots[weekKey] === 'recurring' ||
+        tutorUnavailableSlots[key] === 'unavailable' ||
+        tutorUnavailableSlots[key] === 'recurring'
+      ) return false;
+    }
+    // Otherwise, check if at least one tutor is available
     return ["Krishay", "Om", "Tejas"].some(tutor => tutorAvailability[tutor](day, time));
   });
 
@@ -151,6 +200,20 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
     }
   };
 
+  useEffect(() => {
+    // Autofill tutor if permanent tutor exists for selected course
+    const fetchPermanentTutor = async () => {
+      if (!currentUser || !selectedCourse) return;
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      if (userData && userData.permanentTutors && userData.permanentTutors[selectedCourse]) {
+        setSelectedTutor(userData.permanentTutors[selectedCourse]);
+      }
+    };
+    fetchPermanentTutor();
+  }, [currentUser, selectedCourse]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('Recurring:', recurring);
@@ -165,16 +228,29 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
     const course = specificCourse || otherCourse || selectedCourse;
     const timeObj = { day: format(selectedDate, 'EEEE'), time: selectedTime };
 
+    setLoading(true);
     try {
-      let assignedTutor = await assignTutorPersistent(timeObj, selectedChild, course, selectedDate);
+      let assignedTutor = selectedTutor;
+      let assignedTutorId = selectedTutorId;
       let busyTutor = null;
-      if (typeof assignedTutor === 'object' && assignedTutor.tutor && assignedTutor.busyTutor) {
-        busyTutor = assignedTutor.busyTutor;
-        assignedTutor = assignedTutor.tutor;
-      }
-      if (assignedTutor === "No Available Tutor") {
-        alert('No tutors available for this time slot.');
-        return;
+
+      if (!selectedTutor) {
+        // Only auto-assign if user didn't pick a tutor
+        let autoAssign = await assignTutorPersistent(timeObj, selectedChild, course, selectedDate);
+        if (typeof autoAssign === 'object' && autoAssign.tutor && autoAssign.busyTutor) {
+          busyTutor = autoAssign.busyTutor;
+          assignedTutor = autoAssign.tutor;
+        } else {
+          assignedTutor = autoAssign;
+        }
+        // Look up tutorId by name if needed
+        if (assignedTutor) {
+          const tutorsQuery = query(collection(db, 'users'), where('name', '==', assignedTutor));
+          const tutorsSnap = await getDocs(tutorsQuery);
+          if (!tutorsSnap.empty) {
+            assignedTutorId = tutorsSnap.docs[0].id;
+          }
+        }
       }
 
       const bookingData = {
@@ -187,8 +263,11 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
         date: selectedDate.toISOString(),
         time: selectedTime,
         tutor: assignedTutor,
+        tutorId: assignedTutorId,
         busyTutor,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        isRecurring: recurring,
+        isPermanent
       };
 
       if (recurring) {
@@ -196,31 +275,51 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
           const recurDate = addWeeks(selectedDate, i);
           const recurTimeObj = { day: format(recurDate, 'EEEE'), time: selectedTime };
           let recurTutor = assignedTutor;
+          let recurTutorId = assignedTutorId;
           let recurBusyTutor = busyTutor;
-          let recurResult = await assignTutorPersistent(recurTimeObj, selectedChild, course, recurDate);
-          if (typeof recurResult === 'object' && recurResult.tutor && recurResult.busyTutor) {
-            recurTutor = recurResult.tutor;
-            recurBusyTutor = recurResult.busyTutor;
-          } else if (recurResult === "No Available Tutor") {
-            alert(`No tutors available for week ${i + 1}. Please try a different time.`);
-            return;
-          } else {
-            recurTutor = recurResult;
-            recurBusyTutor = null;
+          if (!selectedTutor) {
+            let recurResult = await assignTutorPersistent(recurTimeObj, selectedChild, course, recurDate);
+            if (typeof recurResult === 'object' && recurResult.tutor && recurResult.busyTutor) {
+              recurTutor = recurResult.tutor;
+              recurBusyTutor = recurResult.busyTutor;
+            } else {
+              recurTutor = recurResult;
+              recurBusyTutor = null;
+            }
+            // Look up tutorId by name if needed
+            if (recurTutor) {
+              const tutorsQuery = query(collection(db, 'users'), where('name', '==', recurTutor));
+              const tutorsSnap = await getDocs(tutorsQuery);
+              if (!tutorsSnap.empty) {
+                recurTutorId = tutorsSnap.docs[0].id;
+              }
+            }
           }
-          await onBook({
+          await addDoc(collection(db, 'bookings'), {
             ...bookingData,
             date: recurDate.toISOString(),
             tutor: recurTutor,
+            tutorId: recurTutorId,
             busyTutor: recurBusyTutor || null
           });
         }
       } else {
-        await onBook({
+        await addDoc(collection(db, 'bookings'), {
           ...bookingData,
           tutor: assignedTutor,
+          tutorId: assignedTutorId,
           busyTutor: busyTutor || null
         });
+      }
+
+      // If it's a permanent booking, update the user's permanent tutors
+      if (isPermanent && selectedTutor) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+        const permanentTutors = userData.permanentTutors || {};
+        permanentTutors[course] = selectedTutor;
+        await updateDoc(userRef, { permanentTutors });
       }
 
       // Reset form
@@ -231,9 +330,14 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
       setSelectedDate(null);
       setSelectedTime('');
       setRecurring(false);
+      setIsRecurring(false);
+      setWeeksToBook(4);
+      setIsPermanent(false);
     } catch (error) {
       console.error('Error booking session:', error);
       alert('Failed to book session. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -321,7 +425,6 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
           {gradeError && (
             <div className="text-red-600 text-sm">{gradeError}</div>
           )}
-
           <select
             value={selectedCourse}
             onChange={e => {
@@ -356,7 +459,17 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
               required
             />
           )}
-
+          <select
+            value={selectedTutor}
+            onChange={e => setSelectedTutor(e.target.value)}
+            className="w-full p-3 rounded-md border border-blue-200 bg-white"
+            required
+          >
+            <option value="">Select a Tutor</option>
+            <option value="Krishay">Krishay</option>
+            <option value="Om">Om</option>
+            <option value="Tejas">Tejas</option>
+          </select>
           <div>
             <div className="grid grid-cols-2 gap-2">
               {availableTimes.length === 0 && <div className="text-gray-500 col-span-2">No available times for this date.</div>}
@@ -377,12 +490,29 @@ export default function BookingForm({ bookings, onBook, userProfile, onGoToSetti
             <input type="checkbox" checked={recurring} onChange={e => setRecurring(e.target.checked)} />
             Make this a recurring weekly lesson (next 4 weeks)
           </label>
+          <label className="flex items-center gap-2 mt-2">
+            <input type="checkbox" checked={isPermanent} onChange={e => setIsPermanent(e.target.checked)} />
+            Set as permanent tutor for this subject
+          </label>
+          {isRecurring && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Number of weeks</label>
+              <input
+                type="number"
+                min="1"
+                max="12"
+                value={weeksToBook}
+                onChange={(e) => setWeeksToBook(parseInt(e.target.value))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+          )}
           <button
             type="submit"
             className="w-full bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-bold py-3 px-6 rounded-lg shadow transition-all text-lg mt-4 disabled:opacity-50"
-            disabled={!canBook || children.length === 0}
+            disabled={!canBook || children.length === 0 || loading}
           >
-            Confirm Booking
+            {loading ? 'Booking...' : 'Confirm Booking'}
           </button>
         </form>
         <p className="text-sm text-gray-500 text-center">Timezone: Pacific Time (PST/PDT)</p>
